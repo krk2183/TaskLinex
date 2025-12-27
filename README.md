@@ -33,7 +33,7 @@ Each page is designed to specialize in one responsibility only.
 | **Pulse (Home)** | 🏗️ Partial | Execution-focused overview and active task management. |
 | **Dashboard** | 📅 Planned | Broader task and project overview. |
 | **Analytics** | 📅 Planned | Performance insights and progress patterns (no vanity metrics). |
-| **Settings** | ✅ Implementation | User preferences and configuration. |
+| **Settings** | 📅 Planned | User preferences and configuration. |
 
 ---
 
