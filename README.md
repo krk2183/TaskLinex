@@ -3,14 +3,12 @@
 
 **TaskLinex** is a focus-first productivity system that eliminates cognitive overload by surfacing only what matters now. By prioritizing team-centric communication, we slash meeting times and reclaim your peak performance.
 
-It is not a notes app, a document wiki, or a workspace clone. It is a tool for **execution**.
-
 ---
 
 ## 🧠 Core Philosophy
 > **Clarity before complexity. Execution before organization.**
 
-Most productivity tools fail because they optimize for *storage*, not *action*. TaskLinex is built around the **Pulse**, a central interface designed to answer three questions at a glance:
+TaskLinex is built around the **Pulse**, a central interface designed to answer three questions at a glance:
 1. **What am I working on right now?**
 2. **How far along am I?**
 3. **What should I do next?**
