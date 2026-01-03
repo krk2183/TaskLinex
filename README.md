@@ -1,6 +1,5 @@
 # 🎯 TaskLinex
-
-## ☕ Platform designed for your team
+> **☕ Platform designed for your team.**
 
 **TaskLinex** is a focus-first productivity system that eliminates cognitive overload by surfacing only what matters now. By prioritizing team-centric communication, we slash meeting times and reclaim your peak performance.
 
