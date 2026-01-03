@@ -2,8 +2,7 @@
 
 ## ☕ Platform designed for your team
 
-**TaskLinex** is a focus-first productivity system designed to reduce cognitive overload by surfacing only what matters now and what comes next.
-By putting teams first, Tasklinex reimagines communications and reduces time wasted on meetings. 
+**TaskLinex** is a focus-first productivity system that eliminates cognitive overload by surfacing only what matters now. By prioritizing team-centric communication, we slash meeting times and reclaim your peak performance.
 
 It is not a notes app, a document wiki, or a workspace clone. It is a tool for **execution**.
 
