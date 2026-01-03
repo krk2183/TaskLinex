@@ -4,13 +4,13 @@
 
 
 // Import Sun/Moon icons for better visual representation of the switch
-import { Home, Settings, ChevronLeft, LayoutDashboard, BarChart3, Sun, Moon } from 'lucide-react';
+import { Home, Settings, ChevronLeft, LayoutDashboard, BarChart3, Sun, Moon, BadgePlus, MapPinCheck } from 'lucide-react';
 import Link from 'next/link';
 import { useLayout } from './LayoutContext'; // Use shared context
 
 const navItems = [
-    { name: 'Home', href: '/', icon: Home },
-    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Pulse', href: '/', icon: BadgePlus },
+    { name: 'Roadmap', href: '/roadmap', icon: MapPinCheck },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
 ];

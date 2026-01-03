@@ -1,476 +1,542 @@
-"use client";   
+"use client";
 
-import { Zap, Clock, AlertTriangle, CheckCircle, XCircle, ArrowRight, CornerDownRight, BarChart3, TrendingUp, TrendingDown } from 'lucide-react';
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { 
+    Zap, Clock, AlertTriangle, CheckCircle, XCircle, ArrowRight, 
+    CornerDownRight, BarChart3, TrendingUp, TrendingDown, 
+    MessageSquare, Users, User, Calendar, Flag, Activity, Layers, 
+    MoreHorizontal, Filter, Search 
+} from 'lucide-react';
 
-const mockSystemState = 'On Track'; // OPTIONS: 'On Track', 'At Risk', 'Stalled'
+// --- TYPES & INTERFACES ---
 
-const mockCommand = {
-    title: 'Forge.AI - V1',
-    rationale: 'System requires immediate human approval to proceed with deployment stage.',
-    urgency: 'Deadline',
-    nexturgency:'Critical',
-    nextStep: 'Deployment Stage',
-    steptitle: 'Exigent matter detected',  
-    current:'Enhance Clarity',
-    reasoning: 'System has detected an anomaly with model outputs.',  
-    progress: 53
-};
+type EventType = 'status_change' | 'comment' | 'blocker' | 'milestone' | 'handoff';
 
-const mockaccount_credent = {
-    name:'Matthew',
-    occupation:'Board Director',
-    availability:'Available',
+interface TeamMember {
+    id: string;
+    name: string;
+    role: string;
+    avatar: string;
+    status: 'online' | 'busy' | 'offline';
+    workload: number; // 0-100%
+    currentTask?: string;
 }
 
-const mockQueue = [
-    { title: 'Finalize quarterly financial report', urgency: 'Deadline' },
-    { title: 'Prepare Q&A for client demo', urgency: 'Normal', dependency: 'Waiting on approval of item 1.' },
-    { title: 'Deploy staging environment fixes', urgency: 'Normal' },
-    { title: 'Update documentation for API v2', urgency: 'Normal' },
+interface PulseEvent {
+    id: string;
+    type: EventType;
+    actor: TeamMember;
+    targetTask: string;
+    targetLink: string;
+    details: string; // e.g., "Moved to In Progress"
+    timestamp: string; // Relative time e.g., "2m ago"
+    metadata?: {
+        from?: string;
+        to?: string;
+        blockerReason?: string;
+    };
+    actionRequired?: boolean;
+}
+
+// --- MOCK DATA ---
+
+const Team: TeamMember[] = [
+    { id: '1', name: 'Matthew', role: 'Director', avatar: 'https://i.pravatar.cc/150?u=1', status: 'online', workload: 85, currentTask: 'Financial Review' },
+    { id: '2', name: 'Sarah', role: 'Lead Eng', avatar: 'https://i.pravatar.cc/150?u=2', status: 'busy', workload: 95, currentTask: 'API Migration' },
+    { id: '3', name: 'David', role: 'Designer', avatar: 'https://i.pravatar.cc/150?u=3', status: 'offline', workload: 40 },
+    { id: '4', name: 'Elena', role: 'Product', avatar: 'https://i.pravatar.cc/150?u=4', status: 'online', workload: 60, currentTask: 'User Flows' },
 ];
 
-const mockEmptyState = {
-    state: 'Active', // OPTIONS: 'NoTasks', 'AllBlocked', 'OverdueOverload', 'Active'
-};
 
-// Interface for the floating boxes
-export interface NoteBox {
-    id: string;
-    text:string;
-    urgency:'Urgent' | 'Update' | 'Neutral';
-    size:number;
-    left:number;
-    top:number;
-    duration:number;
+class addMember implements TeamMember{
+    constructor(
+        public id: string,
+        public name: string,
+        public role: string,
+        public avatar: string,
+        public status: TeamMember['status'],
+        public workload: number,
+        public currentTask?: string
+    ) {}
 }
 
-export const createBubble = (content: string,currentCount:number,urgency:'Urgent' | 'Update' | 'Neutral'): NoteBox => ({
-    id: Math.random().toString(36).substring(2, 9),
-    text: content,
-    urgency:urgency,
-    size: Math.min(200,Math.max(120, content.length * 5)),
-    left: Math.random() *100+100,
-    top:30+(currentCount*63),
-    duration: 6 + Math.random() * 4 
-});
+// Make this read from a dataset and then create these roles
+const getMembers = ()=> {
 
-// 3. System Status Indicator
-const getStatusClasses = (status) => {
-    switch (status) {
-        case 'On Track':
-            return { icon: TrendingUp, color: 'text-emerald-500', bg: 'bg-emerald-500/10', text: 'On Track' };
-        case 'At Risk':
-            return { icon: TrendingDown, color: 'text-amber-500', bg: 'bg-amber-500/10', text: 'At Risk' };
-        case 'Stalled':
-            return { icon: BarChart3, color: 'text-rose-500', bg: 'bg-rose-500/10', text: 'Stalled' };
-        default:
-            return { icon: BarChart3, color: 'text-gray-400', bg: 'bg-gray-700', text: 'Unknown' };
-    }
+    // ILLUSTRATIVE PURPOSES ONLY
+    const id:number = Team.length + 1;
+    const name:string = 'Jake';
+    const role:string = 'Developer';
+    const avatar:string = 'https://i.pravatar.cc/150?u=5';
+    const status: TeamMember['status'] = 'busy';
+    const workload:number = 35;
+    const currentTask:string = 'Scalability Adaptation';
+    const newMember:TeamMember = new addMember(id.toString(),name,role,avatar,status,workload,currentTask);
+    Team.push(newMember)
+    };
+getMembers();
+
+// EVENTS FOR THE ACTIVITY STREAM
+const mockEvents: PulseEvent[] = [
+    {
+        id: 'e1',
+        type: 'blocker',
+        actor: Team[1], // Sarah
+        targetTask: 'Payment Gateway Integration',
+        targetLink: '#',
+        details: 'flagged a critical blocker',
+        timestamp: 'Just now',
+        metadata: { blockerReason: 'Waiting on Stripe API keys from Ops.' },
+        actionRequired: true,
+    },
+    {
+        id: 'e2',
+        type: 'handoff',
+        actor: Team[3], // Elena
+        targetTask: 'Onboarding UI ups',
+        targetLink: '#',
+        details: 'handed off to David',
+        timestamp: '12m ago',
+        metadata: { from: 'Product Review', to: 'Design Implementation' }
+    },
+    {
+        id: 'e3',
+        type: 'status_change',
+        actor: Team[0], // Matthew
+        targetTask: 'Q4 Strategy Deck',
+        targetLink: '#',
+        details: 'marked as Complete',
+        timestamp: '45m ago',
+        metadata: { from: 'In Review', to: 'Done' }
+    },
+    {
+        id: 'e4',
+        type: 'comment',
+        actor: Team[2], // David
+        targetTask: 'Mobile Nav Component',
+        targetLink: '#',
+        details: 'commented',
+        timestamp: '1h ago',
+        metadata: { blockerReason: 'I uploaded the new assets to Figma.' }
+    },
+];
+
+class addEvent implements PulseEvent {
+    constructor(
+        public id:string,
+        public type: EventType,
+        public actor: TeamMember,
+        public targetTask:string,
+        public targetLink:string,
+        public details:string,
+        public timestamp:string,
+        public metadata?: {
+            from?:string,
+            to?:string,
+            blockerReason?:string}
+    ) {}
+}
+
+const getEvents = ()=>{
+    const id = 'e7';
+    const type = 'milestone';
+    // use the last team member to avoid out-of-bounds undefined access
+    const actor = Team[Team.length-1];
+    const targetTask = 'Memory Optimization';
+    const targetLink = 'Link';
+    const details = 'has been picked up';
+    const timestamp= '15m ago';
+    const metadata= {blockerReason:'Customer Disagreement.'}
+    const newAction = new addEvent(id,type,actor,targetTask,targetLink,details,timestamp,metadata);
+    mockEvents.push(newAction)
+
+}
+getEvents();
+
+// Upcoming Elements
+interface Upcoming{
+    
+}
+
+
+// --- HELPER COMPONENTS ---
+
+const StatusPill = ({ status }: { status: string }) => {
+    const colors = {
+        online: 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]',
+        busy: 'bg-amber-500',
+        offline: 'bg-gray-400'
+    };
+    return (
+        <span className={`h-2.5 w-2.5 rounded-full ${colors[status as keyof typeof colors] || colors.offline} ring-2 ring-white dark:ring-gray-900`} />
+    );
 };
 
-const SystemStatusPill = ({ status }) => {
-    const { icon: Icon, color, bg, text } = getStatusClasses(status);
+const WorkloadIndicator = ({ level }: { level: number }) => {
+    let color = 'bg-emerald-500';
+    if (level > 70) color = 'bg-amber-500';
+    if (level > 90) color = 'bg-rose-500';
+
     return (
-        <div className={`flex items-center space-x-2 px-4 py-2 text-sm font-semibold rounded-full ${bg} ${color}`}>
-            <Icon className="w-4 h-4" />
-            <span>{text}</span>
+        <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div 
+                className={`h-full ${color} transition-all duration-500`} 
+                style={{ width: `${level}%` }} 
+            />
         </div>
     );
 };
 
+// --- CORE COMPONENTS ---
 
-//🔣🔣🔣 ICONS 🔣🔣🔣
-const getUrgencyConfig = (urgency) => {
-    switch (urgency) {
-        case 'Critical':
-            return { icon: Zap, color: 'text-red-800', bg: 'bg-red-800' };
-        case 'Overdue':
-            return { icon: AlertTriangle, color: 'text-amber-800', bg: 'bg-amber-800/10' };
-        case 'Deadline': //Blinks at Deadline
-            return { icon: Clock, color: 'text-red-800', bg: 'bg-red-600 animate-pulse' };
-        default:
-            return { icon: CheckCircle, color: 'text-gray-400', bg: 'bg-gray-100 dark:bg-gray-800' };
-    }
-};
-
-const getAvailability = (availability) => {
-    switch(availability) {
-        case 'Available':
-            return "bg-emerald-400 animate-pulse shadow-[0_0_20px_rgba(52,211,153,0.8)]";
-        case 'Busy':
-            return "bg-orange-500 animate-pulse";
-        default:
-            return 'bg-gray-600';
-    }
-}
- 
-// Urgency Icons
-const UrgencyIcon = ({ type }) => {
-    switch (type) {
-        case 'Critical':
-            return <Zap className="w-4 h-4 text-rose-500" />;
-        case 'Overdue':
-            return <AlertTriangle className="w-4 h-4 text-amber-500" />;
-        case 'Deadline':
-            return <Clock className="w-4 h-4 text-indigo-500" />;
-        default:
-            return <CheckCircle className="w-4 h-4 text-gray-400" />;
-    }
-};
-
-// Message Bubble borders
-const BubbleUrgency = (urgency) => {
-    switch (urgency) {
-        case 'Urgent':
-            return '4px solid rgba(255, 0, 0, 0.6)';
-        
-        case 'Update':
-            return '4px solid rgba(255, 213, 0, 0.6)'
-
-        default: //Neutral
-            return '4px solid rgba(99, 102, 241, 0.6)';
-        
-    }
-}
-
-const PrimaryActionButton = ({ command }) => {
-    const actionText = command ? 'Mark Complete' : 'Start Command';
-    const isInvalid = false; 
-
+const PulseInsights = () => {
     return (
-        <button
-            className={`w-full py-4 text-lg font-bold rounded-xl transition-all duration-300 transform hover:scale-[1.01] 
-            ${isInvalid
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-xl shadow-indigo-500/30'
-            }`}
-            disabled={isInvalid}
-        >
-            {actionText}
-        </button>
-    );
-};
-
-
-
-interface CommandProps {
-    title: string;
-    rationale: string;
-    urgency: string;
-    nexturgency: string;
-    nextStep: string;
-    steptitle: string;     
-    reasoning: string;    
-    progress: number;     
-    isUrgent?: boolean;
-}
-
-const handlePress = (): void=>{
-    alert('Hello');
-}
-
-const CommandSurface = ({ command }: { command: CommandProps | null }) => {
-    const [isNoteOpen, setIsNoteOpen] = useState(false);
-    const [note, setNote] = useState("");
-    const [noteBoxes, SetNoteBoxes] = useState<NoteBox[]>([]); // Of interface NoteBox
-    
-    // Sort by urgency priority
-    const priorityMap = { 'Urgent': 3, 'Update': 2, 'Neutral': 1 };
-    const visibleBoxes = [...noteBoxes]
-        .sort((a, b) => priorityMap[b.urgency] - priorityMap[a.urgency])
-        .slice(0, 3);
-
-    const saveNote = () => {
-        if (note.trim() === "") {
-            setIsNoteOpen(false);
-            return;
-        }
-        
-        const testUrgency = noteBoxes.length % 3 === 0 ? 'Urgent' : 'Neutral';
-        
-        // We still create the bubble object, but we will ignore 'left'/'top' 
-        // in the render loop to force them into a neat column.
-        const newbox = createBubble(note, noteBoxes.length, testUrgency);
-
-        SetNoteBoxes((prev) => [...prev, newbox]); // Add Note to storage
-        setNote("");
-        setIsNoteOpen(false);
-
-        // Auto-remove after delay
-        setTimeout(() => {
-            SetNoteBoxes((prev) => prev.filter(b => b.id !== newbox.id));
-        }, 25000);
-    };
-
-    if (!command) {
-        return (
-            <div className="bg-gray-100 dark:bg-gray-800 p-10 rounded-2xl border-2 border-dashed border-gray-300 dark:border-gray-700 text-center">
-                <XCircle className="w-10 h-10 text-rose-500 mx-auto mb-4" />
-                <p className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                    Execution stalled. All remaining work is blocked.
-                </p>
-                <p className="text-lg text-gray-500 dark:text-gray-400 mt-2">
-                    System diagnosis indicates no path forward. Resolve upstream blocks.
-                </p>
-            </div>
-        );
-    }
-
-    const urgencyStyle = getUrgencyConfig(command.urgency);
-    const nexturgencystyle = getUrgencyConfig(command.nexturgency);
-
-    const keydown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            saveNote();
-        }
-    };
-
-    return (
-        <>
-            {/* ACCOUNTS WRAPPER */}
-            <div className="bg-[#0A0E17] border border-[#1e2638] p-6 rounded-xl shadow-2xl relative mb-5 flex items-center justify-between w-full">
-                <div className="flex items-center gap-4">
-                    {/* PFP */}
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-600 to-blue-500 flex-shrink-0 overflow-hidden border-2 border-gray-800">
-                        <img
-                            src="https://via.placeholder.com/150"
-                            alt="PFP"
-                            className="w-full h-full object-cover"
-                        />
-                    </div>
-
-                    {/* Account Name */}
-                    <div>
-                        <h2 className="text-white font-bold text-lg tracking-tight">{mockaccount_credent.name}</h2>
-                        <p className="text-gray-500 text-xs uppercase tracking-widest">{mockaccount_credent.occupation}</p>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div className="bg-white dark:bg-gray-900 border border-indigo-100 dark:border-indigo-900/30 p-4 rounded-xl shadow-sm flex items-center justify-between">
+                <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Team Velocity</p>
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className="text-2xl font-black text-gray-900 dark:text-white">High</span>
+                        <TrendingUp className="w-5 h-5 text-emerald-500" />
                     </div>
                 </div>
-
-                {/* Right Section: Status Dot */}
-                <div className="flex items-center gap-2 bg-[#121620] px-3 py-1 rounded-full border border-gray-800">
-                    <span className="relative flex h-3 w-3">
-                        <span className={`absolute inline-flex h-full w-full rounded-full ${getAvailability(mockaccount_credent.availability)} opacity-75`}></span>
-                        <span className={`relative inline-flex rounded-full h-3 w-3 ${getAvailability(mockaccount_credent.availability)}`}></span>
-                    </span>
-                    <span className="text-gray-300 text-sm font-medium">{mockaccount_credent.availability}</span>
+                <div className="h-10 w-10 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg flex items-center justify-center">
+                    <Zap className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
             </div>
 
-            {/* MAIN CARD SURFACE */}
-            <div className="bg-white dark:bg-gray-900 p-10 rounded-2xl shadow-2xl border-l-5 border-r-5 border-indigo-500 relative">
-
-                {/* Top Right Urgency Badge */}
-                <div className="absolute top-8 right-10">
-                    <div className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-xs uppercase tracking-wider shadow-sm ${urgencyStyle.bg} ${urgencyStyle.text}`}>
-                        <span>{command.urgency ?? 'Standard'}</span>
+            <div className="bg-white dark:bg-gray-900 border border-red-100 dark:border-red-900/30 p-4 rounded-xl shadow-sm flex items-center justify-between relative overflow-hidden">
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500" />
+                <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Active Blockers</p>
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className="text-2xl font-black text-rose-600">2 Issues</span>
                     </div>
                 </div>
+                <button className="text-xs bg-rose-100 dark:bg-rose-900/30 text-rose-600 px-3 py-1.5 rounded-md font-bold hover:bg-rose-200 transition">
+                    View
+                </button>
+            </div>
 
-                {/* Title & Rationale */}
-                <div className="max-w-2xl">
-                    <h2 className="text-4xl font-black text-gray-900 dark:text-white pr-20 leading-[1.1] tracking-tight">
-                        {command.title ?? 'Untitled Command'}
-                    </h2>
-                    <p className="text-xl text-gray-500 dark:text-gray-400 mt-6 mb-10 leading-relaxed font-medium">
-                        {command.rationale ?? 'No rationale provided for this action.'}
-                    </p>
-                </div>
-
-                <div className="mb-10 w-full lg:w-[40%]">
-                    {/* PROGRESS SECTION */}
-                    <div className="flex items-center gap-2 mb-4">
-                        <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                        <span className="text-xs font-black uppercase tracking-widest text-indigo-500">
-                            {command.current ?? 'Enhance clarity'}
+            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 rounded-xl shadow-sm flex items-center justify-between md:col-span-2">
+                <div className="flex-1">
+                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-2">Sprint Health</p>
+                    <div className="flex items-center gap-4 text-sm">
+                        <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                            <Clock className="w-4 h-4 text-indigo-500" /> 3 days left
                         </span>
-                        <div className='ml-auto text-[13px]'>{command.progress}%</div>
-                    </div>
-
-                    <progress
-                        value={command.progress ?? 60}
-                        max={100}
-                        className="w-full h-3 rounded-full overflow-hidden accent-indigo-500 appearance-none bg-gray-100 dark:bg-gray-800 [&::-webkit-progress-bar]:bg-gray-100 dark:[&::-webkit-progress-bar]:bg-gray-800 [&::-webkit-progress-value]:bg-indigo-500"
-                    />
-
-                    {/*📦📦📦 INNER CONTENT AREA 📦📦📦 */}
-                    <div className="relative mt-12">
-
-                        {/*1️⃣ PRIMARY INFO BOX (Left Side) */}
-                        <div className="p-6 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm relative z-10">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-2">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                                    <span className="text-xs font-black uppercase tracking-widest text-indigo-500">
-                                        {command.nextStep ?? 'Enhance clarity'}
-                                    </span>
-                                    {/* INNER ALERT */}
-                                    <div className={`ml-2 text-[12px] rounded-full py-0.4 px-1.5 ${nexturgencystyle.bg}`}>
-                                        <span>{command.nexturgency}</span>
-                                    </div>
-                                </div>
-
-                                <button
-                                    type="button"
-                                    onClick={() => setIsNoteOpen(!isNoteOpen)}
-                                    className={`flex items-center justify-center w-8 h-8 rounded-full transition-all duration-300 shadow-md
-                                    ${isNoteOpen ? 'bg-indigo-500 text-white rotate-45' : 'bg-white dark:bg-grey-500 text-indigo-600 hover:scale-110'}`}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="3" stroke="currentColor" className="w-4 h-4">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                    </svg>
-                                </button>
-                            </div>
-
-                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                                {command.steptitle ?? 'Page 2 is overly vague'}
-                            </h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 leading-relaxed">
-                                {command.reasoning ?? 'The Overlay function has been skimmed over instead of having its features broken down'}
-                            </p>
-                        </div>
-
-                        {/* 2️⃣ SIDEBAR CONTAINER (Right Side) 
-                            Holds both the Input Field AND the Bubbles in a vertical flex column 
-                        */}
-                        <div className="absolute top-0 left-[105%] w-72 h-full flex flex-col gap-4 z-20 pointer-events-none">
-                            
-                            {/* A. INPUT FIELD */}
-                            {isNoteOpen && (
-                                <div className="relative w-full animate-in fade-in zoom-in-95 slide-in-from-left-4 duration-300 pointer-events-auto">
-                                    {/* Arrow pointing to button */}
-                                    <div className="absolute top-8 -left-2 w-4 h-4 bg-white dark:bg-gray-800 border-l border-t border-gray-200 dark:border-gray-700 rotate-[-45deg] z-0" />
-
-                                    <div className="relative bg-white/80 dark:bg-gray-800/90 backdrop-blur-xl p-5 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700">
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <span className="text-[10px] font-bold uppercase text-indigo-500">New Annotation</span>
-                                        </div>
-
-                                        <textarea
-                                            autoFocus
-                                            value={note}
-                                            onKeyDown={keydown}
-                                            onChange={(e) => setNote(e.target.value)}
-                                            placeholder="Write a note..."
-                                            className="w-full min-h-[100px] bg-transparent border-none p-0 text-sm text-gray-800 dark:text-gray-200 placeholder:text-gray-400 focus:ring-0 outline-none resize-none"
-                                        />
-
-                                        <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-                                            <span className="text-[9px] text-gray-400 uppercase tracking-tighter font-medium">Draft Saved</span>
-                                            <button
-                                                onClick={saveNote}
-                                                className="text-[10px] font-bold text-indigo-600 hover:text-indigo-400"
-                                            >
-                                                Done
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* B. BUBBLES LIST */}
-                            {visibleBoxes.map((box) => (
-                                <div
-                                    key={box.id}
-                                    className="floating-note note-visible pointer-events-auto bg-gray-900/80 backdrop-blur-md"
-                                    style={{
-                                        position: 'relative', 
-                                        left: 'auto',
-                                        top: 'auto',
-                                        
-                                        border: BubbleUrgency(box.urgency),
-                                        width: '100%',
-                                        maxWidth: '280px',
-                                        
-                                        animationDuration: `${box.duration}s, ${box.duration + 1}s`,
-                                        animationDelay: `${parseInt(box.id, 36) % 3}s` 
-                                    }}
-                                >
-                                    <span className="text-white text-[0.9rem] leading-tight font-bold break-words block">
-                                        {box.text}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
+                        <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                            <CheckCircle className="w-4 h-4 text-emerald-500" /> 12 Completed
+                        </span>
+                         <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                            <Layers className="w-4 h-4 text-amber-500" /> 5 Remaining
+                        </span>
                     </div>
                 </div>
-
-                <PrimaryActionButton command={command} />
+                <div className="w-24 h-24 -my-6">
+                    {/* Placeholder for a mini sparkline chart */}
+                    <svg viewBox="0 0 100 50" className="w-full h-full stroke-indigo-500 fill-indigo-500/10">
+                        <path d="M0 40 Q 25 20 50 30 T 100 10 V 50 H 0 Z" />
+                    </svg>
+                </div>
             </div>
-        </>
+        </div>
     );
 };
 
-const ExecutionQueue = ({ queue }) => {
-    if (queue.length === 0) {
-        return (
-            <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-xl text-center text-gray-500 dark:text-gray-400 mt-8 border border-gray-200 dark:border-gray-700">
-                <p className="font-medium">No queued work. Execution ends after current command.</p>
-            </div>
-        );
-    }
-
+const TeamSidebar = ({ members }: { members: TeamMember[] }) => {
     return (
-        <div className="mt-12">
-            <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-6 flex items-center">
-                <CornerDownRight className='w-5 h-5 mr-3 text-indigo-500' />
-                Execution Queue
-            </h3>
-            <div className="space-y-3">
-                {queue.slice(0, 5).map((item, index) => (
-                    <div
-                        key={index}
-                        className="bg-white dark:bg-gray-900 p-5 rounded-xl shadow-md flex items-center justify-between border-l-4 border-transparent hover:border-indigo-500 transition-all duration-200"
-                    >
-                        <div className="flex items-center space-x-4 min-w-0">
-                            {/* Urgency Marker */}
-                            <UrgencyIcon type={item.urgency} />
+        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 h-fit sticky top-6 shadow-lg">
+            <div className="flex items-center justify-between mb-6">
+                <h3 className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-indigo-500" /> Team Pulse
+                </h3>
+                <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-500 font-mono">4 Active</span>
+            </div>
 
+            <div className="space-y-5">
+                {members.map((member) => (
+                    <div key={member.id} className="group relative">
+                        <div className="flex items-start gap-3">
+                            <div className="relative">
+                                <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full object-cover border-2 border-gray-100 dark:border-gray-800" />
+                                <div className="absolute -bottom-1 -right-1">
+                                    <StatusPill status={member.status} />
+                                </div>
+                            </div>
                             <div className="flex-1 min-w-0">
-                                {/* Title */}
-                                <p className="text-base font-semibold text-gray-800 dark:text-gray-100 truncate">
-                                    {item.title}
-                                </p>
-                                {/* Dependency Note */}
-                                {item.dependency && (
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex items-center">
-                                        {item.dependency}
+                                <div className="flex justify-between items-center mb-0.5">
+                                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100">{member.name}</h4>
+                                    <span className="text-[10px] text-gray-400">{member.role}</span>
+                                </div>
+                                <WorkloadIndicator level={member.workload} />
+                                {member.currentTask && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate group-hover:text-indigo-500 transition-colors">
+                                        <Activity className="w-3 h-3 inline mr-1 text-gray-400" />
+                                        {member.currentTask}
                                     </p>
                                 )}
                             </div>
                         </div>
-                        <span className="text-xs font-mono text-gray-400 dark:text-gray-600">
-                            #{index + 1}
-                        </span>
                     </div>
                 ))}
+            </div>
+            
+            <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800 text-center">
+                <button className="text-sm text-indigo-600 font-semibold hover:underline">View Schedule</button>
             </div>
         </div>
     );
 };
 
+// Feed Sections Main Content
+const FeedItem = ({ event }: { event: PulseEvent }) => {
+    // COLOR SCHEME AND ICONOGRAPHY
+    const getStyles = (type: EventType) => {
+        switch(type) {
+            case 'blocker':
+                return { icon: AlertTriangle, color: 'text-rose-500', bg: 'bg-rose-50 dark:bg-rose-900/20', border: 'border-rose-200 dark:border-rose-900' };
+            case 'status_change':
+                return { icon: ArrowRight, color: 'text-emerald-500', bg: 'bg-emerald-50 dark:bg-emerald-900/20', border: 'border-emerald-200 dark:border-emerald-900' };
+            case 'handoff':
+                return { icon: User, color: 'text-blue-500', bg: 'bg-blue-50 dark:bg-blue-900/20', border: 'border-blue-200 dark:border-blue-900' };
+            default:
+                return { icon: MessageSquare, color: 'text-gray-500', bg: 'bg-gray-50 dark:bg-gray-800', border: 'border-gray-200 dark:border-gray-800' };
+          }
+    };
 
-
-export default function HomePage() {
-    // Current logic to show "Active" or "Stalled" state
-    const currentCommand = mockEmptyState.state === 'AllBlocked' ? null : mockCommand;
-    const currentQueue = mockEmptyState.state === 'NoTasks' ? [] : mockQueue;
+    const style = getStyles(event.type);
+    const Icon = style.icon;
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-8">
-            <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                TaskLinex <span className="text-indigo-400 dark:text-indigo-500">Pulse</span>
-            </h1>
-            <div className="w-4/5 mx-auto py-8">
-                <div className="flex justify-between items-center mb-10">
-                    {/* System Status could go here */}
+        <div className="flex gap-4 relative pb-8 last:pb-0">
+            {/* Timeline Line */}
+            <div className="absolute left-[19px] top-10 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-800 last:hidden" />
+
+            {/* Avatar */}
+            <div className="relative z-10">
+                <img 
+                    src={event.actor.avatar} 
+                    alt={event.actor.name} 
+                    className="w-10 h-10 rounded-full border-4 border-gray-50 dark:border-gray-950 object-cover shadow-sm" 
+                />
+                <div className={`absolute -bottom-1 -right-1 p-0.5 rounded-full bg-white dark:bg-gray-900 ${style.color}`}>
+                    <Icon className="w-3 h-3" />
                 </div>
-                
-                <CommandSurface command={currentCommand} />
-                {currentCommand && (
-                    <ExecutionQueue queue={currentQueue} />
+            </div>
+
+            {/* Content Card */}
+            <div className={`flex-1 p-4 rounded-xl border ${style.border} ${style.bg} relative group transition-all hover:shadow-md`}>
+                <div className="flex justify-between items-start mb-1">
+                    <p className="text-sm text-gray-900 dark:text-gray-100">
+                        <span className="font-bold">{event.actor.name}</span> <span className="text-gray-600 dark:text-gray-400 font-normal">{event.details}</span> <span className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">"{event.targetTask}"</span>
+                    </p>
+                    <span className="text-xs text-gray-400 whitespace-nowrap ml-2">{event.timestamp}</span>
+                </div>
+
+                {/* Metadata / Details */}
+                {/* WHEN OBSTACLE */}
+                {event.metadata?.blockerReason && (
+                    <div className="mt-2 p-2 bg-rose-100 dark:bg-rose-950/50 rounded-lg text-xs text-rose-800 dark:text-rose-200 font-medium flex items-start gap-2">
+                        <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+                        "{event.metadata.blockerReason}"
+                    </div>
                 )}
+                {/* WHEN CONTINUING */}
+                {event.metadata?.from && (
+                    <div className="mt-2 flex items-center gap-2 text-xs font-mono text-gray-500">
+                        {/* TASK FROM */}
+                        <span className="px-2 py-0.5 bg-white/50 dark:bg-black/20 rounded">{event.metadata.from}</span>
+                        <ArrowRight className="w-3 h-3" />
+                        {/* TASK TO */}
+                        <span className="px-2 py-0.5 bg-white/50 dark:bg-black/20 rounded font-bold text-gray-700 dark:text-gray-300">{event.metadata.to}</span>
+                    </div>
+                )}
+
+                {/* Action Options */}
+                <div className="mt-3 flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {event.actionRequired ? (
+                        <button className="text-xs flex items-center gap-1 bg-white dark:bg-gray-900 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm text-gray-700 dark:text-gray-200 hover:text-emerald-500 font-semibold">
+                            <CheckCircle className="w-3 h-3" /> Resolve
+                        </button>
+                    ) : (
+                         <button className="text-xs flex items-center gap-1 bg-transparent hover:bg-white/50 dark:hover:bg-black/20 px-2 py-1 rounded text-gray-500">
+                            <MessageSquare className="w-3 h-3" /> Reply
+                        </button>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const ActivityStream = ({ events }: { events: PulseEvent[] }) => {
+    return (
+        <div className="bg-white dark:bg-gray-950 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800 min-h-[600px]">
+            <div className="flex items-center justify-between mb-8">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    Activity Stream
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                </h2>
+                
+                {/* 🔎🔎SEARCH FILED 🔎🔎 */}
+                <div className="flex gap-2">
+                     <div className="relative">
+                        <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Filter feed..." 
+                            className="pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-48 transition-all focus:w-64"
+                        />
+                    </div>
+                    <button className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-900 text-gray-500">
+                        <Filter className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+
+            {/* EVENT FIELD */}
+            <div className="pl-2">
+                {events.map(event => (
+                    <FeedItem key={event.id} event={event} />
+                ))}
+            </div>
+
+             <div className="mt-8 text-center">
+                <button className="text-sm text-gray-500 hover:text-indigo-500 transition-colors flex items-center justify-center w-full gap-2">
+                    <Clock className="w-3 h-3" /> Load previous updates
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// --- Pulse Focus ---
+
+const PulseFocus = ({taskList}:{taskList:UpComing}) => {
+    return (
+        <div className="bg-[#0A0E17] text-white p-6 rounded-2xl shadow-2xl border border-indigo-500/30 sticky top-6">
+            <div className="flex justify-between items-start mb-6">
+                <div>
+                    <h3 className="text-sm text-gray-400 uppercase tracking-widest font-bold mb-1">My Focus</h3>
+                    <h2 className="text-xl font-bold">Forge.AI - V1</h2>
+                </div>
+                <div className="bg-red-600 animate-pulse px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                    <Clock className="w-3 h-3" /> Deadline
+                </div>
+            </div>
+
+            <div className="space-y-4">
+                <div className="bg-gray-800/50 p-4 rounded-xl border-l-4 border-indigo-500">
+                    <div className="flex justify-between text-xs text-gray-400 mb-2">
+                        <span>Current Step</span>
+                        <span>53%</span>
+                    </div>
+                    <p className="font-medium text-sm">Enhance Clarity of model outputs</p>
+                    <div className="w-full bg-gray-700 h-1.5 rounded-full mt-3 overflow-hidden">
+                        <div className="bg-indigo-500 h-full w-[53%]" />
+                    </div>
+                </div>
+
+                {/*🚧🚧 UNDER CONSTRUCTION 🚧🚧*/}
+                {/* IMPLEMENT FACTORY FUNCTIONALITY */}
+                <div className="space-y-2">
+                    <p className="text-xs font-bold text-gray-500 uppercase">Up Next</p>
+                    <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800 transition cursor-pointer group">
+                        <div className="flex items-center gap-3">
+                            <CheckCircle className="w-4 h-4 text-gray-600 group-hover:text-indigo-400" />
+                            <span className="text-sm text-gray-300">Deployment Stage</span>
+                        </div>
+                        <Zap className="w-3 h-3 text-red-400" />
+                    </div>
+                    <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800 transition cursor-pointer group">
+                        <div className="flex items-center gap-3">
+                            <CheckCircle className="w-4 h-4 text-gray-600 group-hover:text-indigo-400" />
+                            <span className="text-sm text-gray-300">Final Validation</span>
+                        </div>
+                    </div>
+                </div>
+                {/*🚧🚧 UNDER CONSTRUCTION 🚧🚧*/}
+            </div>
+
+            <button className="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-900/50 transition-all transform hover:scale-[1.02]">
+                Resume Context
+            </button>
+        </div>
+    );
+};
+
+// --- MAIN PAGE LAYOUT ---
+
+export default function PulsePage() {
+    return (
+        <div className="min-h-screen bg-gray-50 dark:bg-[#050505] text-gray-900 dark:text-gray-100 p-4 md:p-8 font-sans selection:bg-indigo-500/30">
+            {/* Header Area */}
+            <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row justify-between items-end gap-6">
+                <div>
+                    <h1 className="text-4xl font-extrabold tracking-tight mb-2">
+                        TaskLinex <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">Pulse</span>
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400 text-lg">
+                        Synchronize with your team without the meetings.
+                    </p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="flex -space-x-3">
+                         {Team.map(m => (
+                             <img key={m.id} src={m.avatar} className="w-8 h-8 rounded-full border-2 border-white dark:border-black" />
+                         ))}
+                         <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-xs font-bold border-2 border-white dark:border-black">+2</div>
+                    </div>
+                    <button className="bg-white dark:bg-gray-800 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        Invite
+                    </button>
+                </div>
+            </div>
+
+            <div className="max-w-7xl mx-auto">
+                {/* 1. Top Level Insights */}
+                <PulseInsights />
+
+                {/* 2. Main Grid Layout */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                    
+                    {/* Left: Team Sidebar (20%) */}
+                    <div className="hidden lg:block lg:col-span-3">
+                        <TeamSidebar members={Team} />
+                    </div>
+
+
+
+                    {/* Right: My Focus (30%) */}
+                    <div className="lg:col-span-3">
+                        <PulseFocus />
+                        
+                        {/* Mini Widget: Upcoming Deadlines */}
+                        <div className="mt-6 bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-800">
+                             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 flex items-center gap-2">
+                                <Calendar className="w-4 h-4" /> This Week
+                             </h4>
+                             <div className="space-y-3">
+                                <div className="flex gap-3 items-start">
+                                    <div className="flex flex-col items-center min-w-[30px]">
+                                        <span className="text-xs font-bold text-gray-400">OCT</span>
+                                        <span className="text-lg font-black text-gray-800 dark:text-gray-200">24</span>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm font-semibold leading-tight">Client Demo: V1 Prototype</p>
+                                        <p className="text-xs text-rose-500 mt-1 font-medium">Risk: High</p>
+                                    </div>
+                                </div>
+                             </div>
+                        </div>
+                    </div>
+                    
+                                        {/* Middle: Activity Feed (50%) */}
+                    <div className="lg:col-span-6">
+                        <ActivityStream events={mockEvents} />
+                    </div>
+                </div>
             </div>
         </div>
     );
