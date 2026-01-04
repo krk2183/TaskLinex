@@ -155,9 +155,98 @@ getEvents();
 
 // Upcoming Elements
 interface Upcoming{
-    
+    id:string,
+    step:string,
+    isHighPriority?:boolean
 }
 
+const upcomingTasks: Upcoming[] = [
+    { id: 'u1', step: 'Enhance Clarity of model outputs', isHighPriority: true },
+    { id: 'u2', step: 'Final Validation', isHighPriority: false },
+    { id: 'u3', step: 'Documentation Sweep', isHighPriority: false },
+];
+
+// Upper Element - Blockers & Dependencies, Sprint Health and Team Velocity
+interface ProjectHealth {
+    velocity: 'High' | 'Medium' | 'Low';
+    blockers: {
+        count: number;
+        type: 'blocker' | 'dependency';
+    };
+    sprint: {
+        daysLeft: number;
+        completed: number;
+        remaining: number;
+    };
+}
+
+const currentStats: ProjectHealth = {
+    velocity: 'Medium', //'High' | 'Medium' | 'Low'
+    blockers: { count: 2, type: 'blocker' }, // 'blocker' | 'dependency'
+    sprint: { daysLeft: 3, completed: 12, remaining: 5 }
+};
+
+// Sprint Health Graph
+const SprintHealthCard  = ({ data }: { data: ProjectHealth }) => {
+    // 1. Setup the Timeline
+    const totalSlots = 25;
+    const totalTasks = data.sprint.completed + data.sprint.remaining;
+    
+    // Assume a 30-day sprint cycle for the 25-bar scale
+    // Or use (totalSlots - data.sprint.daysLeft) to find the "current" bar
+    const currentDayIndex = 15; // Example: we are at bar 15 of 25
+
+    return (
+        <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-sm md:col-span-2 flex items-center justify-between group">
+            <div className="flex-1">
+                <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-2">Sprint Health</p>
+                <div className="flex items-center gap-4 text-sm font-medium">
+                    <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                        <CheckCircle className="w-4 h-4 text-emerald-500" /> {data.sprint.completed} Done
+                    </span>
+                    <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                        <Clock className="w-4 h-4 text-indigo-500" /> {data.sprint.daysLeft}d left
+                    </span>
+                </div>
+            </div>
+
+            <div className="w-52 h-14 flex items-end gap-[2px]">
+                {Array.from({ length: totalSlots }).map((_, i) => {
+                    // 2. Logic: Is this bar in the past, present, or future?
+                    const isPast = i < currentDayIndex;
+                    const isCurrent = i === currentDayIndex;
+                    
+                    // Calculate height: 
+                    // Past bars use a simulated growth curve based on total completion
+                    // Future bars stay low (the 'remaining' work)
+                    let barHeight = 0;
+                    if (isPast) {
+                        barHeight = (i / currentDayIndex) * (data.sprint.completed / totalTasks) * 100;
+                    } else if (isCurrent) {
+                        barHeight = (data.sprint.completed / totalTasks) * 100;
+                    } else {
+                        barHeight = 5; // Placeholder for future days
+                    }
+
+                    return (
+                        <div key={i} className="flex-1 h-full bg-slate-100 dark:bg-slate-800/30 rounded-t-full relative">
+                            <div 
+                                className={`absolute bottom-0 left-0 right-0 rounded-t-full transition-all duration-1000
+                                    ${isCurrent ? 'bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]' : 
+                                      isPast ? 'bg-slate-400 dark:bg-slate-600' : 'bg-slate-200 dark:bg-slate-800'}
+                                `}
+                                style={{ 
+                                    height: `${Math.max(barHeight, 4)}%`,
+                                    transitionDelay: `${i * 10}ms`
+                                }}
+                            />
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
 
 // --- HELPER COMPONENTS ---
 
@@ -189,60 +278,93 @@ const WorkloadIndicator = ({ level }: { level: number }) => {
 
 // --- CORE COMPONENTS ---
 
-const PulseInsights = () => {
+const PulseInsights = ({ data }: { data: ProjectHealth }) => {
+    const isBlocker = data.blockers?.type === 'blocker';
+    const velocityStyles = {
+        High: { color: 'text-emerald-500', bg: 'bg-emerald-100 dark:bg-emerald-900/20', iconColor: 'text-emerald-600', textSize: 'text-xl' },
+        Medium: { color: 'text-amber-500', bg: 'bg-amber-100 dark:bg-amber-900/20', iconColor: 'text-amber-600', textSize: 'text-lg' },
+        Low: { color: 'text-rose-500', bg: 'bg-rose-100 dark:bg-rose-900/20', iconColor: 'text-rose-600', textSize: 'text-xl' }
+    };
+
+    const status = velocityStyles[data.velocity];
+
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            {/* 1. Velocity Card (Always visible) */}
             <div className="bg-white dark:bg-gray-900 border border-indigo-100 dark:border-indigo-900/30 p-4 rounded-xl shadow-sm flex items-center justify-between">
                 <div>
                     <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Team Velocity</p>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className="text-2xl font-black text-gray-900 dark:text-white">High</span>
-                        <TrendingUp className="w-5 h-5 text-emerald-500" />
+                        <span className={`${status.textSize} font-black text-gray-900 dark:text-white`}>{data.velocity}</span>
+                        <TrendingUp className={`w-5 h-5 ${status.color}`} />
                     </div>
                 </div>
-                <div className="h-10 w-10 bg-emerald-100 dark:bg-emerald-900/20 rounded-lg flex items-center justify-center">
-                    <Zap className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <div className={`h-10 w-10 ${status.bg} rounded-lg flex items-center justify-center`}>
+                    <Zap className={`w-5 h-5 ${status.iconColor}`} />
                 </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-900 border border-red-100 dark:border-red-900/30 p-4 rounded-xl shadow-sm flex items-center justify-between relative overflow-hidden">
-                <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500" />
-                <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Active Blockers</p>
-                    <div className="flex items-center gap-2 mt-1">
-                        <span className="text-2xl font-black text-rose-600">2 Issues</span>
+            {/* 2. Blockers Card (Only renders if count > 0) */}
+            {data.blockers.count > 0 && (
+                <div className={`bg-white dark:bg-gray-900 border ${isBlocker ? 'border-rose-200 dark:border-rose-900/50' : 'border-amber-200 dark:border-amber-900/50'} p-4 rounded-xl shadow-sm flex items-center justify-between relative overflow-hidden`}>
+                    <div className={`absolute left-0 top-0 bottom-0 w-1 ${isBlocker ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                    <div>
+                        <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">
+                            {isBlocker ? 'Active Blockers' : 'External Dependencies'}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                            <span className={`text-2xl font-black ${isBlocker ? 'text-rose-600' : 'text-amber-600'}`}>
+                                {data.blockers.count} {data.blockers.count === 1 ? 'Issue' : 'Issues'}
+                            </span>
+                        </div>
                     </div>
+                        <button className={`
+                            text-xs px-4 py-2 rounded-lg font-bold
+                            transition-all duration-200 ease-out
+                            cursor-pointer outline-none active:scale-95                            
+                            border border-slate-700/50 
+                            
+                            ${isBlocker 
+                                ? `bg-rose-900/80 text-rose-100 hover:bg-rose-800 
+                                hover:border-rose-500/50
+                                shadow-[0_4px_12px_-4px_rgba(225,29,72,0.6)]` 
+                                : `bg-slate-800 text-slate-300 hover:bg-slate-700
+                                hover:text-slate-100
+                                hover:border-slate-500/50
+                                shadow-[0_4px_12px_-4px_rgba(0,0,0,0.5)]`
+                            }
+                        `}>
+                            View
+                        </button>
                 </div>
-                <button className="text-xs bg-rose-100 dark:bg-rose-900/30 text-rose-600 px-3 py-1.5 rounded-md font-bold hover:bg-rose-200 transition">
-                    View
-                </button>
-            </div>
+            )}
 
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 rounded-xl shadow-sm flex items-center justify-between md:col-span-2">
-                <div className="flex-1">
-                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-2">Sprint Health</p>
-                    <div className="flex items-center gap-4 text-sm">
-                        <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                            <Clock className="w-4 h-4 text-indigo-500" /> 3 days left
-                        </span>
-                        <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                            <CheckCircle className="w-4 h-4 text-emerald-500" /> 12 Completed
-                        </span>
-                         <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
-                            <Layers className="w-4 h-4 text-amber-500" /> 5 Remaining
-                        </span>
+            {/* 3. Sprint Health (Only renders if there are days left) */}
+            {data.sprint.daysLeft > 0 && (
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 rounded-xl shadow-sm flex items-center justify-between md:col-span-2">
+                    <div className="flex-1">
+                        <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-2">Sprint Health</p>
+                        <div className="flex items-center gap-4 text-sm">
+                            <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                                <Clock className="w-4 h-4 text-indigo-500" /> {data.sprint.daysLeft} days left
+                            </span>
+                            <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                                <CheckCircle className="w-4 h-4 text-emerald-500" /> {data.sprint.completed} Completed
+                            </span>
+                             <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                                <Layers className="w-4 h-4 text-amber-500" /> {data.sprint.remaining} Remaining
+                            </span>
+                        </div>
                     </div>
+                    {data.sprint.daysLeft>0 && (
+                        <SprintHealthCard data={data}/>
+                    )}
                 </div>
-                <div className="w-24 h-24 -my-6">
-                    {/* Placeholder for a mini sparkline chart */}
-                    <svg viewBox="0 0 100 50" className="w-full h-full stroke-indigo-500 fill-indigo-500/10">
-                        <path d="M0 40 Q 25 20 50 30 T 100 10 V 50 H 0 Z" />
-                    </svg>
-                </div>
-            </div>
+            )}
         </div>
     );
 };
+
 
 const TeamSidebar = ({ members }: { members: TeamMember[] }) => {
     return (
@@ -251,7 +373,7 @@ const TeamSidebar = ({ members }: { members: TeamMember[] }) => {
                 <h3 className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
                     <Users className="w-4 h-4 text-indigo-500" /> Team Pulse
                 </h3>
-                <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-500 font-mono">4 Active</span>
+                <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-500">{Team.filter(member => member.status === 'online').length} Online</span>
             </div>
 
             <div className="space-y-5">
@@ -413,7 +535,7 @@ const ActivityStream = ({ events }: { events: PulseEvent[] }) => {
 
 // --- Pulse Focus ---
 
-const PulseFocus = ({taskList}:{taskList:UpComing}) => {
+const PulseFocus = () => {
     return (
         <div className="bg-[#0A0E17] text-white p-6 rounded-2xl shadow-2xl border border-indigo-500/30 sticky top-6">
             <div className="flex justify-between items-start mb-6">
@@ -442,10 +564,19 @@ const PulseFocus = ({taskList}:{taskList:UpComing}) => {
                 {/* IMPLEMENT FACTORY FUNCTIONALITY */}
                 <div className="space-y-2">
                     <p className="text-xs font-bold text-gray-500 uppercase">Up Next</p>
-                    <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800 transition cursor-pointer group">
+                    {upcomingTasks.map((task)=>(
+                    <div key={task.id || task.step} className={`flex items-center justify-between p-3 ${task.isHighPriority? 'bg-rose-800/30' :'bg-gray-800/30'} rounded-lg hover:bg-gray-800 transition cursor-pointer group`}>
+                            <div className="flex items-center gap-3">
+                                <CheckCircle className="w-4 h-4 text-gray-600 group-hover:text-indigo-400" />
+                                <span className="text-sm text-gray-300">{task.step}</span>
+                            </div>
+                            {task.isHighPriority&&<Zap className="w-3 h-3 text-red-400" />}
+                        </div>
+                    ))}
+                    {/* <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800 transition cursor-pointer group">
                         <div className="flex items-center gap-3">
                             <CheckCircle className="w-4 h-4 text-gray-600 group-hover:text-indigo-400" />
-                            <span className="text-sm text-gray-300">Deployment Stage</span>
+                            <span className="text-sm text-gray-300">${taskList.step}</span>
                         </div>
                         <Zap className="w-3 h-3 text-red-400" />
                     </div>
@@ -454,7 +585,7 @@ const PulseFocus = ({taskList}:{taskList:UpComing}) => {
                             <CheckCircle className="w-4 h-4 text-gray-600 group-hover:text-indigo-400" />
                             <span className="text-sm text-gray-300">Final Validation</span>
                         </div>
-                    </div>
+                    </div> */}
                 </div>
                 {/*🚧🚧 UNDER CONSTRUCTION 🚧🚧*/}
             </div>
@@ -496,7 +627,7 @@ export default function PulsePage() {
 
             <div className="max-w-7xl mx-auto">
                 {/* 1. Top Level Insights */}
-                <PulseInsights />
+                <PulseInsights data={currentStats}/>
 
                 {/* 2. Main Grid Layout */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">

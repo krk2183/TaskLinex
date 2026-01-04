@@ -1,122 +1,436 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { 
+    createContext, useContext, useReducer, 
+    useEffect, useState, useMemo, useRef 
+} from 'react';
 import { 
-    Calendar, Filter, ZoomIn, ZoomOut, ChevronRight, 
-    MoreHorizontal, AlertTriangle, CheckCircle, Clock, 
-    ArrowRight, GitCommit, GripVertical, Layers, Users, Zap
+    Calendar, Filter, ZoomIn, ChevronRight, 
+    AlertTriangle, CheckCircle, Clock, ArrowRight, 
+    GitCommit, Layers, Zap, BrainCircuit, UserCog,
+    MessageSquare, RefreshCw, Plus, Search
 } from 'lucide-react';
 
-// --- TYPES & INTERFACES ---
+// ==========================================
+// 1. BACKEND-READY TYPES & INTERFACES
+// ==========================================
 
 type TaskStatus = 'On Track' | 'At Risk' | 'Blocked' | 'Completed';
 type Priority = 'High' | 'Medium' | 'Low';
+type ViewMode = 'Week' | 'Month';
+
+// The "Persona" allows one user to wear multiple hats (e.g., Lead vs Contributor)
+interface Persona {
+    id: string;
+    name: string;
+    role: string;
+    capacity: number; // 0-100
+    color: string;
+}
 
 interface User {
     id: string;
     name: string;
     avatar: string;
-    load: number; // 0-100 capacity
+    baseCapacity: number;
+    personas: Persona[];
+}
+
+interface EnvoySuggestion {
+    id: string;
+    type: 'handoff' | 'slippage' | 'blocker';
+    message: string;
+    confidence: number;
+    actionLabel: string;
 }
 
 interface Task {
     id: string;
+    projectId: string;
     title: string;
-    startDate: number; // Grid column start (simplified for UI demo)
-    duration: number; // Grid span
-    progress: number; // 0-100
+    // Backend would store ISO dates; frontend converts to grid units
+    startDate: number; 
+    duration: number; // Actual duration
+    plannedDuration: number; // For slippage visualization
+    progress: number;
     status: TaskStatus;
-    owner: User;
-    handOffTo?: User; // Optional: Next owner
-    dependencyId?: string; // ID of task this depends on
-    isMilestone?: boolean;
     priority: Priority;
-    plannedDuration?: number; // For Planned vs Actual viz
+    
+    // Relationships
+    ownerId: string;
+    personaId?: string; // Which "hat" is the owner wearing?
+    dependencyIds: string[]; // Array of IDs this task depends on
+    handOffToId?: string;
+    
+    // Meta
+    isMilestone?: boolean;
+    tags: string[];
+    
+    // AI Context
+    envoySuggestion?: EnvoySuggestion;
 }
 
-interface ProjectGroup {
+interface Project {
     id: string;
     name: string;
-    tasks: Task[];
+    visible: boolean;
 }
 
-// --- MOCK DATA ---
+// Global Filter State
+interface FilterState {
+    query: string;
+    owners: string[];
+    statuses: TaskStatus[];
+    onlyMyPersonas: boolean;
+}
 
-const mockUsers: User[] = [
-    { id: 'u1', name: 'Matthew', avatar: 'https://i.pravatar.cc/150?u=1', load: 85 },
-    { id: 'u2', name: 'Sarah', avatar: 'https://i.pravatar.cc/150?u=2', load: 95 }, // Overloaded
-    { id: 'u3', name: 'David', avatar: 'https://i.pravatar.cc/150?u=3', load: 40 },
-    { id: 'u4', name: 'Elena', avatar: 'https://i.pravatar.cc/150?u=4', load: 60 },
-];
+// ==========================================
+// 2. MOCK DATA & API SIMULATION
+// ==========================================
 
-const mockProjects: ProjectGroup[] = [
-    {
-        id: 'p1',
-        name: 'Forge.AI Core',
-        tasks: [
-            { 
-                id: 't1', title: 'Model Training Phase 1', startDate: 1, duration: 4, 
-                progress: 100, status: 'Completed', owner: mockUsers[0], priority: 'High' 
-            },
-            { 
-                id: 't2', title: 'Data Validation', startDate: 4, duration: 3, 
-                progress: 60, status: 'On Track', owner: mockUsers[1], dependencyId: 't1', priority: 'High',
-                plannedDuration: 2 // Slippage: Taking longer than planned
-            },
-            { 
-                id: 't3', title: 'API Gateway Integration', startDate: 6, duration: 4, 
-                progress: 20, status: 'At Risk', owner: mockUsers[2], dependencyId: 't2', priority: 'Medium',
-                handOffTo: mockUsers[3] // Handoff
-            },
+const MOCK_USERS: User[] = [
+    { 
+        id: 'u1', name: 'Matthew', avatar: 'https://i.pravatar.cc/150?u=1', baseCapacity: 80,
+        personas: [
+            { id: 'p_u1_1', name: 'Matt (Lead)', role: 'Lead', capacity: 40, color: 'bg-purple-500' },
+            { id: 'p_u1_2', name: 'Matt (Dev)', role: 'Dev', capacity: 60, color: 'bg-blue-500' }
         ]
     },
-    {
-        id: 'p2',
-        name: 'Web Dashboard V2',
-        tasks: [
-            { 
-                id: 't4', title: 'UX Research', startDate: 2, duration: 3, 
-                progress: 90, status: 'On Track', owner: mockUsers[3], priority: 'Low' 
-            },
-            { 
-                id: 't5', title: 'Alpha Release', startDate: 8, duration: 1, 
-                progress: 0, status: 'Blocked', owner: mockUsers[1], isMilestone: true, priority: 'High' 
-            }
-        ]
+    { 
+        id: 'u2', name: 'Sarah', avatar: 'https://i.pravatar.cc/150?u=2', baseCapacity: 95,
+        personas: [{ id: 'p_u2_1', name: 'Sarah', role: 'Data Scientist', capacity: 95, color: 'bg-emerald-500' }]
+    },
+    { 
+        id: 'u3', name: 'David', avatar: 'https://i.pravatar.cc/150?u=3', baseCapacity: 40,
+        personas: [{ id: 'p_u3_1', name: 'David', role: 'Backend', capacity: 40, color: 'bg-indigo-500' }]
     }
 ];
 
-const timeColumns = ['Week 1', 'Week 2', 'Week 3', 'Week 4', 'Week 5', 'Week 6', 'Week 7', 'Week 8', 'Week 9', 'Week 10', 'Week 11', 'Week 12'];
+const MOCK_PROJECTS: Project[] = [
+    { id: 'proj1', name: 'Forge.AI Core', visible: true },
+    { id: 'proj2', name: 'Web Dashboard V2', visible: true }
+];
 
-// --- SUB-COMPONENTS ---
+const MOCK_TASKS: Task[] = [
+    { 
+        id: 't1', projectId: 'proj1', title: 'Model Training P1', startDate: 1, duration: 4, plannedDuration: 4,
+        progress: 100, status: 'Completed', priority: 'High', ownerId: 'u1', personaId: 'p_u1_1', dependencyIds: [], tags: ['AI']
+    },
+    { 
+        id: 't2', projectId: 'proj1', title: 'Data Validation', startDate: 4, duration: 3, plannedDuration: 2, // Slippage
+        progress: 60, status: 'On Track', priority: 'High', ownerId: 'u2', dependencyIds: ['t1'], tags: ['Data'],
+        envoySuggestion: { id: 's1', type: 'slippage', message: 'Task is 1 week behind schedule.', confidence: 0.9, actionLabel: 'Adjust Timeline' }
+    },
+    { 
+        id: 't3', projectId: 'proj1', title: 'Gateway Integration', startDate: 6, duration: 4, plannedDuration: 4,
+        progress: 20, status: 'At Risk', priority: 'Medium', ownerId: 'u3', dependencyIds: ['t2'], handOffToId: 'u1', tags: ['Backend']
+    },
+    { 
+        id: 't4', projectId: 'proj2', title: 'UX Research', startDate: 2, duration: 3, plannedDuration: 3,
+        progress: 90, status: 'On Track', priority: 'Low', ownerId: 'u3', dependencyIds: [], tags: ['Design']
+    },
+    { 
+        id: 't5', projectId: 'proj2', title: 'Alpha Release', startDate: 8, duration: 1, plannedDuration: 1,
+        progress: 0, status: 'Blocked', priority: 'High', ownerId: 'u1', dependencyIds: ['t3', 't4'], isMilestone: true, tags: ['Release']
+    }
+];
 
-// 1. Top Bar: Team Workload HUD
-const WorkloadHUD = () => {
+// Async Placeholder
+const MockAPI = {
+    sleep: (ms: number) => new Promise(r => setTimeout(r, ms)),
+    fetchData: async () => { await MockAPI.sleep(800); return { tasks: MOCK_TASKS, users: MOCK_USERS, projects: MOCK_PROJECTS }; },
+    autoBalance: async (tasks: Task[]) => {
+        await MockAPI.sleep(1200);
+        // Simulate logic: Find overloaded user, move task to underloaded user
+        const newTasks = [...tasks];
+        const riskyTask = newTasks.find(t => t.id === 't3');
+        if (riskyTask) {
+            riskyTask.ownerId = 'u1'; // Reassign
+            riskyTask.status = 'On Track';
+        }
+        return newTasks;
+    },
+    triggerEnvoyAction: async (taskId: string, action: string) => {
+        await MockAPI.sleep(1000);
+        return { success: true, message: `Envoy executed: ${action}` };
+    }
+};
+
+// ==========================================
+// 3. STORE & STATE MANAGEMENT (Context)
+// ==========================================
+
+interface AppState {
+    tasks: Task[];
+    users: User[];
+    projects: Project[];
+    currentUser: User | null; // The logged in user
+    activePersonaId: string | null; // Which "Hat" they are wearing
+    isLoading: boolean;
+    filters: FilterState;
+    viewMode: ViewMode;
+    envoyActive: string | null; // Task ID interacting with Envoy
+}
+
+type Action = 
+    | { type: 'INIT_DATA', payload: any }
+    | { type: 'SET_FILTER', payload: Partial<FilterState> }
+    | { type: 'SET_VIEW_MODE', payload: ViewMode }
+    | { type: 'TOGGLE_PERSONA', payload: string }
+    | { type: 'UPDATE_TASKS', payload: Task[] }
+    | { type: 'SET_LOADING', payload: boolean }
+    | { type: 'TRIGGER_ENVOY', payload: string | null };
+
+const initialState: AppState = {
+    tasks: [], users: [], projects: [],
+    currentUser: MOCK_USERS[0], // Simulating logged in as Matthew
+    activePersonaId: 'p_u1_1',
+    isLoading: true,
+    viewMode: 'Week',
+    envoyActive: null,
+    filters: { query: '', owners: [], statuses: [], onlyMyPersonas: false }
+};
+
+const AppContext = createContext<{ state: AppState; dispatch: React.Dispatch<Action> } | null>(null);
+
+function appReducer(state: AppState, action: Action): AppState {
+    switch (action.type) {
+        case 'INIT_DATA':
+            return { ...state, ...action.payload, isLoading: false };
+        case 'SET_FILTER':
+            return { ...state, filters: { ...state.filters, ...action.payload } };
+        case 'SET_VIEW_MODE':
+            return { ...state, viewMode: action.payload };
+        case 'TOGGLE_PERSONA':
+            return { ...state, activePersonaId: action.payload === state.activePersonaId ? null : action.payload };
+        case 'UPDATE_TASKS':
+            return { ...state, tasks: action.payload };
+        case 'SET_LOADING':
+            return { ...state, isLoading: action.payload };
+        case 'TRIGGER_ENVOY':
+            return { ...state, envoyActive: action.payload };
+        default: return state;
+    }
+}
+
+// ==========================================
+// 4. SUB-COMPONENTS
+// ==========================================
+
+// 4.1 Dependency SVG Layer
+// Calculates connections based on grid positions (Row Index & Column Index)
+const DependencyLayer = ({ tasks, projects, viewMode }: { tasks: Task[], projects: Project[], viewMode: ViewMode }) => {
+    // Flatten tasks to find their visual row index
+    const visibleProjects = projects.filter(p => p.visible);
+    let rowMap = new Map<string, number>();
+    let currentRow = 0;
+
+    visibleProjects.forEach(p => {
+        currentRow++; // Project Header
+        const projectTasks = tasks.filter(t => t.projectId === p.id);
+        projectTasks.forEach(t => {
+            rowMap.set(t.id, currentRow);
+            currentRow++;
+        });
+    });
+
+    const colWidth = 8.33; // %
+    const rowHeight = 56; // px (approx height of task row)
+    const headerOffset = 140; // px offset from top
+
     return (
-        <div className="flex items-center gap-6 px-4 py-2 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 overflow-x-auto">
-            <span className="text-xs font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">Team Load</span>
-            {mockUsers.map(user => {
-                let loadColor = 'bg-emerald-500';
-                if (user.load > 70) loadColor = 'bg-amber-500';
-                if (user.load > 90) loadColor = 'bg-rose-500';
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
+            {tasks.map(task => {
+                if (!task.dependencyIds || task.dependencyIds.length === 0) return null;
+                const endRow = rowMap.get(task.id);
+                if (endRow === undefined) return null;
 
+                return task.dependencyIds.map(depId => {
+                    const depTask = tasks.find(t => t.id === depId);
+                    const startRow = rowMap.get(depId);
+                    if (!depTask || startRow === undefined) return null;
+
+                    // Coordinates
+                    const x1 = (depTask.startDate + depTask.duration - 1) * colWidth + "%";
+                    const y1 = (startRow * rowHeight) + (rowHeight / 2) + 20; // +20 fudge factor for padding
+                    const x2 = (task.startDate - 1) * colWidth + "%";
+                    const y2 = (endRow * rowHeight) + (rowHeight / 2) + 20;
+
+                    // Path Logic (Curved connector)
+                    return (
+                        <g key={`${depId}-${task.id}`}>
+                            <path 
+                                d={`M ${x1} ${y1} C ${parseInt(x1) + 5}% ${y1}, ${parseInt(x2) - 5}% ${y2}, ${x2} ${y2}`}
+                                fill="none"
+                                stroke={task.status === 'Blocked' ? '#f43f5e' : '#6366f1'}
+                                strokeWidth="2"
+                                strokeDasharray={task.status === 'On Track' ? '0' : '4'}
+                                className="opacity-40"
+                            />
+                            <circle cx={x2} cy={y2} r="3" fill={task.status === 'Blocked' ? '#f43f5e' : '#6366f1'} />
+                        </g>
+                    );
+                });
+            })}
+        </svg>
+    );
+};
+
+// 4.2 The "Envoy" AI Assistant Popup
+const EnvoyPopup = ({ task, onClose }: { task: Task, onClose: () => void }) => {
+    const [status, setStatus] = useState<'idle' | 'thinking' | 'done'>('idle');
+    
+    const handleAction = async () => {
+        setStatus('thinking');
+        await MockAPI.triggerEnvoyAction(task.id, 'Optimized Schedule');
+        setStatus('done');
+        setTimeout(onClose, 1500);
+    };
+
+    return (
+        <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-indigo-100 dark:border-indigo-900 z-50 p-4 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center gap-2 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
+                <BrainCircuit className="w-4 h-4 text-indigo-500" />
+                <span className="font-bold text-xs uppercase tracking-wider text-indigo-900 dark:text-indigo-100">Envoy AI</span>
+            </div>
+            
+            {status === 'idle' && (
+                <>
+                    <p className="text-xs text-slate-600 dark:text-slate-300 mb-3">
+                        {task.envoySuggestion?.message || "I can help optimize this task's allocation."}
+                    </p>
+                    <button 
+                        onClick={handleAction}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+                    >
+                        <Zap className="w-3 h-3" />
+                        {task.envoySuggestion?.actionLabel || "Analyze Impact"}
+                    </button>
+                </>
+            )}
+
+            {status === 'thinking' && (
+                <div className="flex flex-col items-center py-2 text-indigo-500">
+                    <RefreshCw className="w-5 h-5 animate-spin mb-2" />
+                    <span className="text-xs">Optimizing critical path...</span>
+                </div>
+            )}
+
+            {status === 'done' && (
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
+                    <CheckCircle className="w-5 h-5" />
+                    <span className="text-xs font-bold">Optimization Applied</span>
+                </div>
+            )}
+        </div>
+    );
+};
+
+// 4.3 Task Item
+const TaskItem = ({ task, user, dispatch, isEnvoyActive }: { task: Task, user: User | undefined, dispatch: any, isEnvoyActive: boolean }) => {
+    const statusColor = {
+        'On Track': 'bg-indigo-500', 'At Risk': 'bg-amber-500', 'Blocked': 'bg-rose-500', 'Completed': 'bg-emerald-500'
+    };
+
+    // Calculate slippage (Ghost bar)
+    const isSlipping = task.duration > task.plannedDuration;
+    const ghostWidth = (task.plannedDuration / task.duration) * 100;
+
+    return (
+        <div 
+            className="absolute top-2 h-10 group"
+            style={{ left: `${(task.startDate - 1) * 8.33}%`, width: `${task.duration * 8.33}%` }}
+        >
+            {/* Envoy Trigger (Hover) */}
+            <button 
+                onClick={() => dispatch({ type: 'TRIGGER_ENVOY', payload: isEnvoyActive ? null : task.id })}
+                className={`absolute -top-3 -right-3 z-30 bg-white dark:bg-slate-900 rounded-full p-1 shadow border transition-all ${task.envoySuggestion ? 'text-indigo-600 scale-100' : 'text-gray-400 scale-0 group-hover:scale-100'}`}
+            >
+                <BrainCircuit className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Envoy Popup */}
+            {isEnvoyActive && <EnvoyPopup task={task} onClose={() => dispatch({ type: 'TRIGGER_ENVOY', payload: null })} />}
+
+            {/* Ghost Bar (Planned) */}
+            {isSlipping && (
+                <div className="absolute inset-0 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-md opacity-50 w-full" style={{ width: `${ghostWidth}%` }} />
+            )}
+
+            {/* Main Bar */}
+            <div className={`relative h-full rounded-md shadow-sm transition-all hover:shadow-lg overflow-hidden flex items-center px-3 ${statusColor[task.status]}`}>
+                {/* Progress */}
+                <div className="absolute left-0 top-0 bottom-0 bg-black/20" style={{ width: `${task.progress}%` }} />
+                
+                {/* Text */}
+                <span className="relative z-10 text-xs font-bold text-white truncate w-full">{task.title}</span>
+
+                {/* Avatar */}
+                {user && (
+                    <img 
+                        src={user.avatar} 
+                        className="absolute right-2 w-6 h-6 rounded-full border border-white/30" 
+                        alt="Owner"
+                    />
+                )}
+            </div>
+
+            {/* Handoff Indicator */}
+            {task.handOffToId && (
+                <div className="absolute top-1/2 -right-3 -translate-y-1/2 w-5 h-5 bg-slate-900 rounded-full flex items-center justify-center text-white border border-white z-20">
+                    <ArrowRight className="w-3 h-3" />
+                </div>
+            )}
+        </div>
+    );
+};
+
+// 4.4 HUD with Persona Support
+const WorkloadHUD = () => {
+    const { state, dispatch } = useContext(AppContext)!;
+
+    return (
+        <div className="flex items-center gap-6 px-6 py-3 bg-white dark:bg-[#0B1120] border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
+            <div className="flex flex-col">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Team Capacity</span>
+                <span className="text-xs text-slate-500">Persona View</span>
+            </div>
+            
+            <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-2" />
+
+            {state.users.map(user => {
+                // If the user is the current logged-in user, show persona toggles
+                const isCurrentUser = state.currentUser?.id === user.id;
+                
                 return (
-                    <div key={user.id} className="flex items-center gap-3 min-w-[140px] group cursor-pointer">
-                        <div className="relative">
-                            <img src={user.avatar} className="w-8 h-8 rounded-full border border-gray-200 dark:border-gray-700" alt={user.name} />
-                            {user.load > 90 && (
-                                <div className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] w-4 h-4 flex items-center justify-center rounded-full animate-pulse">!</div>
-                            )}
-                        </div>
-                        <div className="flex-1">
-                            <div className="flex justify-between text-[10px] text-gray-500 mb-1">
-                                <span className="font-semibold text-gray-700 dark:text-gray-300">{user.name}</span>
-                                <span>{user.load}%</span>
+                    <div key={user.id} className="flex flex-col gap-1 min-w-[140px]">
+                        <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                                <img src={user.avatar} className="w-6 h-6 rounded-full" alt={user.name} />
+                                <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{user.name}</span>
                             </div>
-                            <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
-                                <div className={`h-full ${loadColor} rounded-full transition-all duration-500`} style={{ width: `${user.load}%` }} />
-                            </div>
+                            <span className="text-[10px] text-slate-400">{user.baseCapacity}%</span>
                         </div>
+                        
+                        {/* Capacity Bar */}
+                        <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${user.baseCapacity > 90 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${user.baseCapacity}%` }} />
+                        </div>
+
+                        {/* Persona Pills (Only for Current User or heavily detailed view) */}
+                        {isCurrentUser && (
+                            <div className="flex gap-1 mt-1">
+                                {user.personas.map(p => (
+                                    <button 
+                                        key={p.id}
+                                        onClick={() => dispatch({ type: 'TOGGLE_PERSONA', payload: p.id })}
+                                        className={`text-[9px] px-1.5 py-0.5 rounded border transition-colors ${state.activePersonaId === p.id ? 'bg-indigo-100 border-indigo-300 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-700 dark:text-indigo-300' : 'bg-transparent border-slate-200 text-slate-500'}`}
+                                    >
+                                        {p.role}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 );
             })}
@@ -124,253 +438,175 @@ const WorkloadHUD = () => {
     );
 };
 
-// 2. The Task Bar Component
-const TaskBar = ({ task }: { task: Task }) => {
-    // Styles based on status
-    const statusStyles = {
-        'On Track': 'bg-indigo-500 border-indigo-600',
-        'At Risk': 'bg-amber-500 border-amber-600',
-        'Blocked': 'bg-rose-500 border-rose-600',
-        'Completed': 'bg-emerald-500 border-emerald-600',
+// ==========================================
+// 5. MAIN PAGE COMPONENT
+// ==========================================
+
+export default function RoadmapPage() {
+    const [state, dispatch] = useReducer(appReducer, initialState);
+    
+    // Initial Data Fetch
+    useEffect(() => {
+        MockAPI.fetchData().then(data => dispatch({ type: 'INIT_DATA', payload: data }));
+    }, []);
+
+    // Filter Logic
+    const filteredTasks = useMemo(() => {
+        return state.tasks.filter(t => {
+            const matchesSearch = t.title.toLowerCase().includes(state.filters.query.toLowerCase());
+            const matchesStatus = state.filters.statuses.length === 0 || state.filters.statuses.includes(t.status);
+            // Persona Filter Logic
+            const matchesPersona = !state.filters.onlyMyPersonas || (state.activePersonaId ? t.personaId === state.activePersonaId : true);
+            return matchesSearch && matchesStatus && matchesPersona;
+        });
+    }, [state.tasks, state.filters, state.activePersonaId]);
+
+    const handleAutoBalance = async () => {
+        dispatch({ type: 'SET_LOADING', payload: true });
+        const optimizedTasks = await MockAPI.autoBalance(state.tasks);
+        dispatch({ type: 'UPDATE_TASKS', payload: optimizedTasks });
+        dispatch({ type: 'SET_LOADING', payload: false });
     };
 
-    const isSlipping = task.plannedDuration && task.duration > task.plannedDuration;
-
-    if (task.isMilestone) {
-        return (
-            <div 
-                className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center group z-20 hover:scale-110 transition-transform cursor-pointer"
-                style={{ left: `${(task.startDate - 1) * 8.33}%`, width: '40px' }}
-            >
-                <div className="w-4 h-4 rotate-45 bg-purple-500 border-2 border-white dark:border-gray-900 shadow-lg" />
-                <div className="w-0.5 h-8 bg-purple-500/50 absolute top-4" />
-                <span className="mt-6 text-[10px] font-bold text-purple-600 dark:text-purple-400 whitespace-nowrap bg-white dark:bg-gray-800 px-2 py-0.5 rounded shadow-sm opacity-0 group-hover:opacity-100 transition-opacity">
-                    {task.title}
-                </span>
-            </div>
-        );
+    if (state.isLoading) {
+        return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0B1120] text-slate-400">Loading Execution Environment...</div>;
     }
 
     return (
-        <div 
-            className="absolute h-10 top-2 group z-10"
-            style={{ 
-                left: `${(task.startDate - 1) * 8.33}%`, 
-                width: `${task.duration * 8.33}%` 
-            }}
-        >
-            {/* TOOLTIP ON HOVER */}
-            <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-64 bg-gray-900 text-white text-xs p-3 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                <div className="flex justify-between items-start mb-2">
-                    <span className="font-bold text-sm">{task.title}</span>
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold uppercase ${task.status === 'Blocked' ? 'bg-rose-500' : 'bg-gray-700'}`}>
-                        {task.status}
-                    </span>
-                </div>
-                <div className="space-y-1 text-gray-300">
-                    <div className="flex items-center gap-2">
-                        <Clock className="w-3 h-3" /> 
-                        <span>{task.duration} Weeks (Est: {task.plannedDuration || task.duration})</span>
-                    </div>
-                    {task.handOffTo && (
-                        <div className="flex items-center gap-2 text-indigo-300">
-                            <ArrowRight className="w-3 h-3" /> 
-                            <span>Hand-off to {task.handOffTo.name}</span>
-                        </div>
-                    )}
-                </div>
-                <div className="mt-2 pt-2 border-t border-gray-700 flex justify-between items-center">
-                    <span className="text-[10px] text-gray-400">Changed 2h ago by Sarah</span>
-                    <button className="text-indigo-400 hover:text-white font-bold">View Details</button>
-                </div>
-            </div>
-
-            {/* PLANNED (Ghost Bar - Visible if slipping) */}
-            {isSlipping && (
-                <div 
-                    className="absolute top-0 left-0 h-full border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md opacity-50"
-                    style={{ width: `${(task.plannedDuration! / task.duration) * 100}%` }}
-                />
-            )}
-
-            {/* ACTUAL BAR */}
-            <div className={`relative h-full rounded-md shadow-md flex items-center px-3 overflow-hidden transition-all hover:shadow-lg ${statusStyles[task.status]}`}>
-                {/* Progress Fill (Darker shade overlay) */}
-                <div className="absolute left-0 top-0 bottom-0 bg-black/10" style={{ width: `${task.progress}%` }} />
+        <AppContext.Provider value={{ state, dispatch }}>
+            <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 flex flex-col font-sans">
                 
-                {/* Content */}
-                <span className="relative z-10 text-xs font-bold text-white truncate drop-shadow-md pr-8">
-                    {task.title}
-                </span>
-
-                {/* Owner Avatars */}
-                <div className="absolute right-2 flex items-center">
-                    <img src={task.owner.avatar} className="w-6 h-6 rounded-full border border-white/20" alt="Owner" />
-                    {task.handOffTo && (
-                        <div className="flex items-center -ml-2 z-10">
-                            <div className="w-4 h-4 bg-gray-900 rounded-full flex items-center justify-center border border-white/20 text-white">
-                                <ArrowRight className="w-2 h-2" />
+                {/* TOP HEADER */}
+                <header className="bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-slate-800 p-4 z-40">
+                    <div className="max-w-[1800px] mx-auto flex flex-col xl:flex-row justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="p-2 bg-indigo-500/10 rounded-lg">
+                                <Layers className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                             </div>
-                            <img src={task.handOffTo.avatar} className="w-6 h-6 rounded-full border border-white/20 -ml-1" alt="Next" />
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* DEPENDENCY LINE (Simulated for this demo) */}
-            {task.dependencyId && (
-                <svg className="absolute top-1/2 right-full w-12 h-8 -mr-1 pointer-events-none overflow-visible z-0 hidden md:block">
-                    <path 
-                        d="M -20,0 C -10,0 -10,10 0,10" 
-                        fill="none" 
-                        stroke="#6366f1" 
-                        strokeWidth="2" 
-                        strokeDasharray="4"
-                    />
-                    <circle cx="0" cy="10" r="2" fill="#6366f1" />
-                </svg>
-            )}
-        </div>
-    );
-};
-
-
-// --- MAIN PAGE COMPONENT ---
-
-export default function RoadmapPage() {
-    const [zoomLevel, setZoomLevel] = useState<'Month' | 'Week'>('Week');
-
-    return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col">
-            
-            {/* HEADER AREA */}
-            <div className="bg-white dark:bg-[#0A0E17] border-b border-gray-200 dark:border-gray-800 p-6 shadow-sm z-30">
-                <div className="max-w-[1600px] mx-auto">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                        <div>
-                            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
-                                <Layers className="text-indigo-500" />
-                                Execution Roadmap
-                            </h1>
-                            <p className="text-gray-500 dark:text-gray-400 mt-1">
-                                Q4 Deliverables & Team Capacity
-                            </p>
-                        </div>
-                        
-                        <div className="flex items-center gap-3">
-                            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
-                                <button 
-                                    onClick={() => setZoomLevel('Month')}
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${zoomLevel === 'Month' ? 'bg-white dark:bg-gray-700 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-                                >
-                                    Month
-                                </button>
-                                <button 
-                                    onClick={() => setZoomLevel('Week')}
-                                    className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${zoomLevel === 'Week' ? 'bg-white dark:bg-gray-700 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}
-                                >
-                                    Week
-                                </button>
+                            <div>
+                                <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">Execution Roadmap</h1>
+                                <div className="flex items-center gap-2 text-xs text-slate-500">
+                                    <span className="flex items-center gap-1"><GitCommit className="w-3 h-3"/> v2.4.0</span>
+                                    <span>•</span>
+                                    <span>Q1 2026 Deliverables</span>
+                                </div>
                             </div>
-                            <button className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-indigo-500/20">
-                                <Zap className="w-4 h-4" /> Auto-Balance
+                        </div>
+
+                        {/* QUERY BUILDER / TOOLBAR */}
+                        <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-900/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 overflow-x-auto">
+                            <div className="relative group">
+                                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
+                                <input 
+                                    type="text" 
+                                    placeholder="Search (JQL support pending)..." 
+                                    className="pl-9 pr-4 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm w-64 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    onChange={(e) => dispatch({ type: 'SET_FILTER', payload: { query: e.target.value } })}
+                                />
+                            </div>
+                            
+                            <div className="h-6 w-px bg-slate-300 dark:bg-slate-700 mx-1" />
+                            
+                            <button 
+                                onClick={() => dispatch({ type: 'SET_FILTER', payload: { onlyMyPersonas: !state.filters.onlyMyPersonas } })}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${state.filters.onlyMyPersonas ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' : 'hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'}`}
+                            >
+                                <UserCog className="w-4 h-4" />
+                                My Persona Only
+                            </button>
+
+                            <button 
+                                onClick={handleAutoBalance}
+                                className="ml-auto bg-slate-900 dark:bg-indigo-600 hover:bg-slate-800 dark:hover:bg-indigo-700 text-white px-4 py-1.5 rounded-lg text-sm font-bold flex items-center gap-2 shadow-lg shadow-indigo-500/20 transition-all"
+                            >
+                                <Zap className="w-3 h-3" /> Auto-Balance
                             </button>
                         </div>
                     </div>
+                </header>
 
-                    {/* FILTERS TOOLBAR */}
-                    <div className="flex items-center gap-4 overflow-x-auto pb-2">
-                        <div className="relative group">
-                            <SearchInput />
-                        </div>
-                        <FilterDropdown label="Owner" />
-                        <FilterDropdown label="Status" />
-                        <FilterDropdown label="Priority" />
-                        <div className="h-6 w-px bg-gray-300 dark:bg-gray-700 mx-2" />
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
-                            <div className="flex items-center gap-1"><span className="w-3 h-3 bg-indigo-500 rounded-sm"></span> On Track</div>
-                            <div className="flex items-center gap-1"><span className="w-3 h-3 bg-amber-500 rounded-sm"></span> At Risk</div>
-                            <div className="flex items-center gap-1"><span className="w-3 h-3 bg-rose-500 rounded-sm"></span> Blocked</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+                <WorkloadHUD />
 
-            {/* TEAM HUD */}
-            <WorkloadHUD />
-
-            {/* GANTT AREA */}
-            <div className="flex-1 overflow-auto relative custom-scrollbar">
-                <div className="min-w-[1200px] p-6">
-                    
-                    {/* TIMELINE HEADER (Dates) */}
-                    <div className="sticky top-0 z-20 bg-gray-50/95 dark:bg-gray-950/95 backdrop-blur border-b border-gray-200 dark:border-gray-800 mb-6">
-                        <div className="grid grid-cols-12 gap-0 text-center">
-                            {timeColumns.map((col, i) => (
-                                <div key={i} className="py-2 border-r border-gray-200 dark:border-gray-800 last:border-0">
-                                    <span className="text-xs font-bold text-gray-500 uppercase">{col}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {/* PROJECT GROUPS */}
-                    <div className="space-y-8">
-                        {mockProjects.map(project => (
-                            <div key={project.id} className="relative">
-                                {/* Project Header */}
-                                <div className="sticky left-0 flex items-center gap-3 mb-4 bg-gray-50 dark:bg-gray-950 pr-4 w-fit z-10">
-                                    <button className="p-1 hover:bg-gray-200 dark:hover:bg-gray-800 rounded">
-                                        <ChevronRight className="w-4 h-4 text-gray-500" />
-                                    </button>
-                                    <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">{project.name}</h3>
-                                    <span className="text-xs bg-gray-200 dark:bg-gray-800 text-gray-500 px-2 py-0.5 rounded-full font-mono">
-                                        {project.tasks.length} items
-                                    </span>
-                                </div>
-
-                                {/* Timeline Rows */}
-                                <div className="relative border-l border-gray-200 dark:border-gray-800 ml-4 space-y-4">
-                                    {/* Vertical Grid Lines Background */}
-                                    <div className="absolute inset-0 grid grid-cols-12 pointer-events-none z-0">
-                                        {Array.from({ length: 12 }).map((_, i) => (
-                                            <div key={i} className="border-r border-dashed border-gray-200 dark:border-gray-800 h-full" />
-                                        ))}
+                {/* GANTT CANVAS */}
+                <div className="flex-1 overflow-auto relative custom-scrollbar bg-slate-50 dark:bg-[#0B1120]">
+                    <div className="min-w-[1400px] p-8">
+                        
+                        {/* TIMELINE DATES */}
+                        <div className="sticky top-0 z-30 bg-slate-50/95 dark:bg-[#0B1120]/95 backdrop-blur border-b border-slate-200 dark:border-slate-800 mb-6">
+                            <div className="grid grid-cols-12 gap-0">
+                                {Array.from({ length: 12 }).map((_, i) => (
+                                    <div key={i} className="py-3 border-r border-slate-200 dark:border-slate-800/50 text-center">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">W{i + 1}</span>
                                     </div>
-
-                                    {/* Task Rows */}
-                                    {project.tasks.map(task => (
-                                        <div key={task.id} className="relative h-14 w-full">
-                                            <TaskBar task={task} />
-                                        </div>
-                                    ))}
-                                </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
+                        </div>
 
+                        <div className="relative">
+                            {/* BACKGROUND GRID */}
+                            <div className="absolute inset-0 grid grid-cols-12 pointer-events-none z-0">
+                                {Array.from({ length: 12 }).map((_, i) => (
+                                    <div key={i} className="border-r border-dashed border-slate-200 dark:border-slate-800 h-full" />
+                                ))}
+                            </div>
+
+                            {/* SVG LINES OVERLAY */}
+                            <DependencyLayer tasks={state.tasks} projects={state.projects} viewMode={state.viewMode} />
+
+                            {/* PROJECT ROWS */}
+                            <div className="space-y-12 relative z-10">
+                                {state.projects.map(project => {
+                                    const projectTasks = filteredTasks.filter(t => t.projectId === project.id);
+                                    if (projectTasks.length === 0) return null;
+
+                                    return (
+                                        <div key={project.id}>
+                                            {/* Project Title Stickiness */}
+                                            <div className="sticky left-0 flex items-center gap-3 mb-4 pr-4 w-fit z-20 bg-slate-50 dark:bg-[#0B1120] py-1 rounded-r-lg">
+                                                <button className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition-colors">
+                                                    <ChevronRight className="w-4 h-4 text-slate-500" />
+                                                </button>
+                                                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200">{project.name}</h3>
+                                                <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full font-mono">
+                                                    {projectTasks.length}
+                                                </span>
+                                            </div>
+
+                                            {/* Task Rows */}
+                                            <div className="relative space-y-4 min-h-[100px]">
+                                                {projectTasks.map(task => (
+                                                    <div key={task.id} className="relative h-14 w-full hover:bg-white/50 dark:hover:bg-white/5 rounded-lg transition-colors">
+                                                        {task.isMilestone ? (
+                                                            // Milestone Render
+                                                            <div 
+                                                                className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center z-20 cursor-pointer"
+                                                                style={{ left: `${(task.startDate - 1) * 8.33}%` }}
+                                                            >
+                                                                <div className="w-5 h-5 rotate-45 bg-purple-500 border-2 border-white dark:border-slate-900 shadow-lg hover:scale-125 transition-transform" />
+                                                                <span className="mt-8 text-[10px] font-bold text-purple-600 bg-white dark:bg-slate-800 px-2 py-0.5 rounded shadow-sm">
+                                                                    {task.title}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            // Standard Task Render
+                                                            <TaskItem 
+                                                                task={task} 
+                                                                user={state.users.find(u => u.id === task.ownerId)} 
+                                                                dispatch={dispatch}
+                                                                isEnvoyActive={state.envoyActive === task.id}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
+        </AppContext.Provider>
     );
 }
-
-// --- UTILITY COMPONENTS ---
-
-const SearchInput = () => (
-    <div className="relative">
-        <input 
-            type="text" 
-            placeholder="Search tasks..." 
-            className="pl-8 pr-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-48"
-        />
-        <ZoomIn className="w-4 h-4 text-gray-400 absolute left-2.5 top-2" />
-    </div>
-);
-
-const FilterDropdown = ({ label }: { label: string }) => (
-    <button className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-        <Filter className="w-3 h-3 text-gray-500" />
-        <span className="font-medium text-gray-700 dark:text-gray-300">{label}</span>
-    </button>
-);
