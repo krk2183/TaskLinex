@@ -47,27 +47,41 @@ export default function Sidebar() {
             </div>
             
             {/* 2. Navigation Links */}
-            <nav className="flex-1 space-y-2 mt-10">
-                {navItems.map((item) => (
-                    <Link
-                        key={item.name}
-                        href={item.href}
-                        className={`flex items-center relative overflow-hidden  text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-white rounded-lg py-3 px-3 transition-all duration-300 group ${isExpanded ? 'justify-start' : 'justify-center'}`}
-                    >
-                        <item.icon size={24} className="flex-shrink-0" />
-                        <span
-                            className={`ml-3 whitespace-nowrap ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-full absolute'} transition-all duration-300 overflow-hidden`}
+            <nav className="flex flex-col flex-1 mt-10">
+                <div className='space-y-2'>
+                    {navItems.map((item) => (
+                        <Link
+                            key={item.name}
+                            href={item.href}
+                            className={`flex items-center relative overflow-hidden  text-gray-700 dark:text-gray-300 hover:bg-indigo-50 dark:hover:bg-gray-700 hover:text-indigo-600 dark:hover:text-white rounded-lg py-3 px-3 transition-all duration-300 group ${isExpanded ? 'justify-start' : 'justify-center'}`}
                         >
-                            {item.name}
-                        </span>
-                        {/* Tooltip for collapsed state (Visible on hover) */}
-                        {!isExpanded && (
-                            <span className="absolute left-full ml-4 py-1 px-3 bg-gray-800 text-white text-sm rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                            <item.icon size={24} className="flex-shrink-0" />
+                            <span
+                                className={`ml-3 whitespace-nowrap ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-full absolute'} transition-all duration-300 overflow-hidden`}
+                            >
                                 {item.name}
                             </span>
-                        )}
-                    </Link>
-                ))}
+                            {/* Tooltip for collapsed state (Visible on hover) */}
+                            {!isExpanded && (
+                                <span className="absolute left-full ml-4 py-1 px-3 bg-gray-800 text-white text-sm rounded-md opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                                    {item.name}
+                                </span>
+                            )}
+                        </Link>
+                    ))}
+                </div>
+
+                <div className="mt-auto mb-5 border-t border-gray-200 dark:border-slate-800 pt-4">
+                    <div className={`flex items-center gap-3 ${isExpanded ? 'px-2' : 'justify-center'}`}>
+                        <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">JD</div>
+                        <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "w-full" : "w-0"}`}>
+                            <a href="/account" className="text-xs">
+                                <div className="text-gray-800 dark:text-white font-medium whitespace-nowrap">John Doe</div>
+                                <div className="text-slate-500 whitespace-nowrap">Workspace Admin</div>
+                            </a>
+                        </div>
+                    </div>
+                </div>
             </nav>
         </aside>
     );

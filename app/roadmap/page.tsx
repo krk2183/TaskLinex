@@ -8,12 +8,10 @@ import {
     Calendar, Filter, ZoomIn, ChevronRight, 
     AlertTriangle, CheckCircle, Clock, ArrowRight, 
     GitCommit, Layers, Zap, BrainCircuit, UserCog,
-    MessageSquare, RefreshCw, Plus, Search
+    MessageSquare, RefreshCw, Plus, Search, X
 } from 'lucide-react';
 
-// ==========================================
 // 1. BACKEND-READY TYPES & INTERFACES
-// ==========================================
 
 type TaskStatus = 'On Track' | 'At Risk' | 'Blocked' | 'Completed';
 type Priority = 'High' | 'Medium' | 'Low';
@@ -55,17 +53,14 @@ interface Task {
     progress: number;
     status: TaskStatus;
     priority: Priority;
-    
     // Relationships
     ownerId: string;
     personaId?: string; // Which "hat" is the owner wearing?
     dependencyIds: string[]; // Array of IDs this task depends on
     handOffToId?: string;
-    
     // Meta
     isMilestone?: boolean;
     tags: string[];
-    
     // AI Context
     envoySuggestion?: EnvoySuggestion;
 }
@@ -219,14 +214,20 @@ function appReducer(state: AppState, action: Action): AppState {
 
 // 4.1 Dependency SVG Layer
 // Calculates connections based on grid positions (Row Index & Column Index)
-const DependencyLayer = ({ tasks, projects, viewMode }: { tasks: Task[], projects: Project[], viewMode: ViewMode }) => {
+const DependencyLayer = ({ tasks, projects, viewMode, collapsedProjects }: { tasks: Task[], projects: Project[], viewMode: ViewMode, collapsedProjects: string[] }) => {
     // Flatten tasks to find their visual row index
     const visibleProjects = projects.filter(p => p.visible);
     let rowMap = new Map<string, number>();
     let currentRow = 0;
 
     visibleProjects.forEach(p => {
+        const isCollapsed = collapsedProjects.includes(p.id);
         currentRow++; // Project Header
+
+        if (isCollapsed) {
+            return;
+        }
+
         const projectTasks = tasks.filter(t => t.projectId === p.id);
         projectTasks.forEach(t => {
             rowMap.set(t.id, currentRow);
@@ -288,10 +289,10 @@ const EnvoyPopup = ({ task, onClose }: { task: Task, onClose: () => void }) => {
     };
 
     return (
-        <div className="absolute top-full left-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-indigo-100 dark:border-indigo-900 z-50 p-4 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-center gap-2 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
+        <div className="absolute hover:z-50 top-full left-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-indigo-100 dark:border-indigo-900 z-50 p-4 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center z-[70] gap-2 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
                 <BrainCircuit className="w-4 h-4 text-indigo-500" />
-                <span className="font-bold text-xs uppercase tracking-wider text-indigo-900 dark:text-indigo-100">Envoy AI</span>
+                <span className="relative z-index:10 font-bold text-xs uppercase tracking-wider text-indigo-900 dark:text-indigo-100">Envoy AI</span>
             </div>
             
             {status === 'idle' && (
@@ -344,32 +345,50 @@ const TaskItem = ({ task, user, dispatch, isEnvoyActive }: { task: Task, user: U
             {/* Envoy Trigger (Hover) */}
             <button 
                 onClick={() => dispatch({ type: 'TRIGGER_ENVOY', payload: isEnvoyActive ? null : task.id })}
-                className={`absolute -top-3 -right-3 z-30 bg-white dark:bg-slate-900 rounded-full p-1 shadow border transition-all ${task.envoySuggestion ? 'text-indigo-600 scale-100' : 'text-gray-400 scale-0 group-hover:scale-100'}`}
+                className={`absolute -top-3 -right-3 z-[60] bg-white dark:bg-slate-900 rounded-full p-1 shadow border transition-all ${task.envoySuggestion ? 'text-indigo-600 scale-100' : 'text-gray-400 scale-0 group-hover:scale-100'}`}
             >
                 <BrainCircuit className="w-3.5 h-3.5" />
             </button>
 
             {/* Envoy Popup */}
-            {isEnvoyActive && <EnvoyPopup task={task} onClose={() => dispatch({ type: 'TRIGGER_ENVOY', payload: null })} />}
-
+            {isEnvoyActive && (
+                <div className="relative z-[70]"> 
+                    <EnvoyPopup task={task} onClose={() => dispatch({ type: 'TRIGGER_ENVOY', payload: null })} />
+                </div>
+            )}
             {/* Ghost Bar (Planned) */}
             {isSlipping && (
                 <div className="absolute inset-0 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-md opacity-50 w-full" style={{ width: `${ghostWidth}%` }} />
             )}
 
-            {/* Main Bar */}
-            <div className={`relative h-full rounded-md shadow-sm transition-all hover:shadow-lg overflow-hidden flex items-center px-3 ${statusColor[task.status]}`}>
-                {/* Progress */}
+                {/* Main Bar */}
+                <div className={`
+                    relative h-full rounded-md shadow-sm 
+                    flex items-center px-3 gap-2 overflow-hidden
+                    ${statusColor[task.status]}
+                    
+                    /* THE ANIMATION MAGIC */
+                    transition-all transition-gpu duration-300 ease-in-out 
+                    hover:w-max hover:min-w-full hover:z-50 hover:shadow-xl
+                    group
+                `}>
+                {/* Progress Background */}
                 <div className="absolute left-0 top-0 bottom-0 bg-black/20" style={{ width: `${task.progress}%` }} />
                 
                 {/* Text */}
-                <span className="relative z-10 text-xs font-bold text-white truncate w-full">{task.title}</span>
+                <span className="
+                    relative z-10 text-xs font-bold text-white 
+                    truncate group-hover:whitespace-normal group-hover:overflow-visible
+                    transition-all duration-300
+                ">
+                    {task.title}
+                </span>
 
                 {/* Avatar */}
                 {user && (
                     <img 
                         src={user.avatar} 
-                        className="absolute right-2 w-6 h-6 rounded-full border border-white/30" 
+                        className="relative z-10 w-6 h-6 rounded-full border border-white/30 flex-shrink-0" 
                         alt="Owner"
                     />
                 )}
@@ -388,6 +407,24 @@ const TaskItem = ({ task, user, dispatch, isEnvoyActive }: { task: Task, user: U
 // 4.4 HUD with Persona Support
 const WorkloadHUD = () => {
     const { state, dispatch } = useContext(AppContext)!;
+
+    if (state.isLoading) {
+        return (
+            <div className="flex items-center gap-6 px-6 py-3 bg-white dark:bg-[#0B1120] border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
+                <div className="flex flex-col gap-1">
+                    <div className="h-2 w-20 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+                    <div className="h-3 w-16 bg-slate-200 dark:bg-slate-800 rounded animate-pulse" />
+                </div>
+                <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-2" />
+                {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex flex-col gap-2 min-w-[140px] animate-pulse">
+                        <div className="flex justify-between items-center"><div className="w-20 h-3 bg-slate-200 dark:bg-slate-800 rounded" /></div>
+                        <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-800 rounded-full" />
+                    </div>
+                ))}
+            </div>
+        );
+    }
 
     return (
         <div className="flex items-center gap-6 px-6 py-3 bg-white dark:bg-[#0B1120] border-b border-slate-200 dark:border-slate-800 overflow-x-auto">
@@ -438,6 +475,162 @@ const WorkloadHUD = () => {
     );
 };
 
+// 4.5 Add Task Modal
+const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
+    // Save the variables in memory
+    const { state, dispatch } = useContext(AppContext)!;
+    const [title, setTitle] = useState('');
+    const [projectId, setProjectId] = useState(state.projects[0]?.id || '');
+    const [ownerId, setOwnerId] = useState(state.users[0]?.id || '');
+    const [startDate, setStartDate] = useState(1);
+    const [duration, setDuration] = useState(1);
+    const [status, setStatus] = useState<TaskStatus>('On Track');
+    const [priority, setPriority] = useState<Priority>('Medium');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        const newTask: Task = {
+            id: `t${Date.now()}`,   
+            projectId,
+            title,
+            startDate: Number(startDate),
+            duration: Number(duration),
+            plannedDuration: Number(duration),
+            progress: 0,
+            status,
+            priority,
+            ownerId,
+            dependencyIds: [],
+            tags: []
+        };
+        
+        dispatch({ type: 'UPDATE_TASKS', payload: [...state.tasks, newTask] });
+        onClose();
+    };
+
+    return (
+        // Creates the background blur
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-[#0F172A] w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 p-6 scale-100 animate-in zoom-in-95 duration-200">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-lg font-bold text-slate-900 dark:text-white">Add New Task</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                        <X className="w-5 h-5" />
+                    </button>
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Task Title</label>
+                        <input 
+                            type="text" 
+                            required
+                            value={title}
+                            onChange={e => setTitle(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+                            placeholder="e.g. Database Migration"
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Project</label>
+                            <select 
+                                value={projectId}
+                                onChange={e => setProjectId(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            >
+                                {state.projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Owner</label>
+                            <select 
+                                value={ownerId}
+                                onChange={e => setOwnerId(e.target.value)}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            >
+                                {state.users.map(u => (
+                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Start Week</label>
+                            <input 
+                                type="number" 
+                                min="1" max="12"
+                                value={startDate}
+                                onChange={e => setStartDate(Number(e.target.value))}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Duration (W)</label>
+                            <input 
+                                type="number" 
+                                min="1" max="12"
+                                value={duration}
+                                onChange={e => setDuration(Number(e.target.value))}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                         <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Status</label>
+                            <select 
+                                value={status}
+                                onChange={e => setStatus(e.target.value as TaskStatus)}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            >
+                                <option value="On Track">On Track</option>
+                                <option value="At Risk">At Risk</option>
+                                <option value="Blocked">Blocked</option>
+                                <option value="Completed">Completed</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Priority</label>
+                            <select 
+                                value={priority}
+                                onChange={e => setPriority(e.target.value as Priority)}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                            >
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="pt-4 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-800 mt-6">
+                        <button 
+                            type="button"
+                            onClick={onClose}
+                            className="px-4 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            type="submit"
+                            className="px-4 py-2 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-lg shadow-indigo-500/20 transition-all transform hover:scale-105 active:scale-95"
+                        >
+                            Create Task
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    );
+};
+
 // ==========================================
 // 5. MAIN PAGE COMPONENT
 // ==========================================
@@ -453,6 +646,7 @@ export default function RoadmapPage() {
     // Filter Logic
     const filteredTasks = useMemo(() => {
         return state.tasks.filter(t => {
+            // THIS PART
             const matchesSearch = t.title.toLowerCase().includes(state.filters.query.toLowerCase());
             const matchesStatus = state.filters.statuses.length === 0 || state.filters.statuses.includes(t.status);
             // Persona Filter Logic
@@ -468,15 +662,20 @@ export default function RoadmapPage() {
         dispatch({ type: 'SET_LOADING', payload: false });
     };
 
-    const [addVisible,setAVisible] = useState(false);
+    const [collapsedProjects, setCollapsedProjects] = useState<string[]>([]);
+    const toggleProjectCollapse = (projectId: string) => {
+        setCollapsedProjects(prev => 
+            prev.includes(projectId) 
+                ? prev.filter(id => id !== projectId) 
+                : [...prev, projectId]
+        );
+    };
 
-    if (state.isLoading) {
-        return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0B1120] text-slate-400">Loading Execution Environment...</div>;
-    }
+    const [addVisible,setAVisible] = useState(false);
 
     return (
         <AppContext.Provider value={{ state, dispatch }}>
-            <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 flex flex-col font-sans">
+            <div className="min-h-screen bg-slate-50 dark:bg-[#0B1120] text-slate-900 dark:text-slate-100 flex flex-col font-sans animate-in fade-in slide-in-from-bottom-8 duration-700 ease-out">
                 
                 {/* TOP HEADER */}
                 <header className="bg-white dark:bg-[#0F172A] border-b border-slate-200 dark:border-slate-800 p-4 z-40">
@@ -553,58 +752,107 @@ export default function RoadmapPage() {
                             </div>
 
                             {/* SVG LINES OVERLAY */}
-                            <DependencyLayer tasks={state.tasks} projects={state.projects} viewMode={state.viewMode} />
+                            <DependencyLayer tasks={state.tasks} projects={state.projects} viewMode={state.viewMode} collapsedProjects={collapsedProjects} />
 
                             {/* PROJECT ROWS */}
                             <div className="space-y-12 relative z-10">
-                                {state.projects.map(project => {
-                                    const projectTasks = filteredTasks.filter(t => t.projectId === project.id);
-                                    if (projectTasks.length === 0) return null;
-
-                                    return (
-                                        <div key={project.id}>
-                                            {/* Project Title Stickiness */}
-                                            <div className="sticky left-0 flex items-center gap-3 mb-4 pr-4 w-fit z-20 bg-slate-50 dark:bg-[#0B1120] py-1 rounded-r-lg">
-                                                <button className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition-colors">
-                                                    <ChevronRight className="w-4 h-4 text-slate-500" />
-                                                </button>
-                                                <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200">{project.name}</h3>
-                                                <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full font-mono">
-                                                    {projectTasks.length}
-                                                </span>
+                                {state.isLoading ? (
+                                    // Loading Skeletons
+                                    <div className="space-y-12 p-2">
+                                        {[1, 2].map((i) => (
+                                            <div key={i} className="animate-pulse space-y-4">
+                                                <div className="flex items-center gap-3 mb-4">
+                                                    <div className="w-4 h-4 bg-slate-200 dark:bg-slate-800 rounded" />
+                                                    <div className="h-6 w-48 bg-slate-200 dark:bg-slate-800 rounded" />
+                                                </div>
+                                                <div className="h-14 w-full bg-slate-200/50 dark:bg-slate-800/50 rounded-lg" />
+                                                <div className="h-14 w-full bg-slate-200/50 dark:bg-slate-800/50 rounded-lg" />
                                             </div>
-
-                                            {/* Task Rows */}
-                                            <div className="relative space-y-4 min-h-[100px]">
-                                                {projectTasks.map(task => (
-                                                    <div key={task.id} className="relative h-14 w-full hover:bg-white/50 dark:hover:bg-white/5 rounded-lg transition-colors">
-                                                        {task.isMilestone ? (
-                                                            // Milestone Render
-                                                            <div 
-                                                                className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center z-20 cursor-pointer"
-                                                                style={{ left: `${(task.startDate - 1) * 8.33}%` }}
-                                                            >
-                                                                <div className="w-5 h-5 rotate-45 bg-purple-500 border-2 border-white dark:border-slate-900 shadow-lg hover:scale-125 transition-transform" />
-                                                                <span className="mt-8 text-[10px] font-bold text-purple-600 bg-white dark:bg-slate-800 px-2 py-0.5 rounded shadow-sm">
-                                                                    {task.title}
-                                                                </span>
-                                                            </div>
-                                                        ) : (
-                                                            // Standard Task Render
-                                                            <TaskItem 
-                                                                task={task} 
-                                                                user={state.users.find(u => u.id === task.ownerId)} 
-                                                                dispatch={dispatch}
-                                                                isEnvoyActive={state.envoyActive === task.id}
-                                                            />
-                                                        )}
-                                                        
-                                                    </div>
-                                                ))}
-                                            </div>
+                                        ))}
+                                    </div>
+                                ) : filteredTasks.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center h-96 text-center">
+                                        <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full mb-4">
+                                            <Search className="w-8 h-8 text-slate-400" />
                                         </div>
-                                    );
-                                })}
+                                        <h3 className="text-lg font-medium text-slate-900 dark:text-white">No matching tasks found</h3>
+                                        <p className="text-slate-500 dark:text-slate-400 mt-1">
+                                            Try adjusting your search or filters to find what you're looking for.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    state.projects.map(project => {
+                                        const projectTasks = filteredTasks.filter(t => t.projectId === project.id);
+                                        const isCollapsed = collapsedProjects.includes(project.id);
+                                        
+                                        // Get unique users for this project to display avatars
+                                        const projectUserIds = [...new Set(projectTasks.map(task => task.ownerId))];
+                                        const projectUsers = state.users.filter(user => projectUserIds.includes(user.id));
+
+                                        if (projectTasks.length === 0) return null;
+
+                                        return (
+                                            <div key={project.id} className="transition-all duration-300">
+                                                {/* Project Title Stickiness */}
+                                                <div className="sticky left-0 flex items-center gap-3 pr-4 w-fit z-20 bg-slate-50 dark:bg-[#0B1120] py-1 rounded-r-lg mb-2">
+                                                    <button onClick={() => toggleProjectCollapse(project.id)} className="p-1 hover:bg-slate-200 dark:hover:bg-slate-800 rounded transition-colors">
+                                                        <ChevronRight className={`w-4 h-4 text-slate-500 transition-transform duration-300 ${!isCollapsed ? 'rotate-90' : ''}`} />
+                                                    </button>
+                                                    <h3 className="font-bold text-lg text-slate-800 dark:text-slate-200">{project.name}</h3>
+                                                    <span className="text-[10px] bg-slate-200 dark:bg-slate-800 text-slate-500 px-2 py-0.5 rounded-full font-mono">
+                                                        {projectTasks.length}
+                                                    </span>
+
+                                                    {/* Collapsed View: Show Avatars */}
+                                                    <div className={`flex items-center transition-all duration-300 ease-in-out ${isCollapsed ? 'pl-2 opacity-100' : '-translate-x-4 opacity-0 h-0 w-0'}`}>
+                                                        {projectUsers.map((user, index) => (
+                                                            <img
+                                                                key={user.id}
+                                                                src={user.avatar}
+                                                                alt={user.name}
+                                                                className="w-6 h-6 rounded-full border-2 border-slate-50 dark:border-[#0B1120]"
+                                                                style={{ marginLeft: index > 0 ? '-10px' : 0, zIndex: projectUsers.length - index }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                
+                                                {/* Animated Task Container */}
+                                                <div className={`grid transition-all duration-300 ease-in-out ${isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'}`}>
+                                                    <div className="overflow-hidden">
+                                                        <div className="relative space-y-4 min-h-[100px]">
+                                                            {projectTasks.map(task => (
+                                                                <div key={task.id} className="relative h-14 w-full hover:bg-white/50 dark:hover:bg-white/5 rounded-lg transition-colors">
+                                                                    {task.isMilestone ? (
+                                                                        // Milestone Render
+                                                                        <div 
+                                                                            className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center z-20 cursor-pointer"
+                                                                            style={{ left: `${(task.startDate - 1) * 8.33}%` }}
+                                                                        >
+                                                                            <div className="w-5 h-5 rotate-45 bg-purple-500 border-2 border-white dark:border-slate-900 shadow-lg hover:scale-125 transition-transform" />
+                                                                            <span className="mt-8 text-[10px] font-bold text-purple-600 bg-white dark:bg-slate-800 px-2 py-0.5 rounded shadow-sm">
+                                                                                {task.title}
+                                                                            </span>
+                                                                        </div>
+                                                                    ) : (
+                                                                        // Standard Task Render
+                                                                        <TaskItem 
+                                                                            task={task} 
+                                                                            user={state.users.find(u => u.id === task.ownerId)} 
+                                                                            dispatch={dispatch}
+                                                                            isEnvoyActive={state.envoyActive === task.id}
+                                                                        />
+                                                                    )}
+                                                                    
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
+                                )}
                             </div>                        
                         </div>
                     </div>
@@ -614,6 +862,9 @@ export default function RoadmapPage() {
                             <Plus className="w-15 h-6" />
                         </button>
                     </div>
+
+                    {/* Open the AddTaskModal window */}
+                    {addVisible && <AddTaskModal onClose={() => setAVisible(false)} />}
                 </div>
 
             </div>

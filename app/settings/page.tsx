@@ -108,6 +108,22 @@ const INITIAL_SETTINGS: UserSettings = {
     }
 };
 
+const Toggle = ({ label, description, checked, onChange, disabled }: any) => (
+    <div className={`flex items-start justify-between py-4 border-b border-gray-100 dark:border-gray-800 last:border-0 ${disabled ? 'opacity-50' : ''}`}>
+        <div className="pr-8">
+            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</h4>
+            {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
+        </div>
+        <button 
+            onClick={() => !disabled && onChange(!checked)}
+            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${checked ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'}`}
+        >
+            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
+        </button>
+    </div>
+);
+
+
 const SettingsAPI = {
     get: async (): Promise<UserSettings> => {
         await new Promise(r => setTimeout(r, 600)); // Simulate net lag
@@ -127,67 +143,53 @@ const SettingsAPI = {
 // ==========================================
 
 // --- Generic Toggle Component ---
-const Toggle = ({ label, description, checked, onChange, disabled }: any) => (
-    <div className={`flex items-start justify-between py-4 border-b border-gray-100 dark:border-gray-800 last:border-0 ${disabled ? 'opacity-50' : ''}`}>
-        <div className="pr-8">
-            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">{label}</h4>
-            {description && <p className="text-xs text-gray-500 mt-1">{description}</p>}
-        </div>
-        <button 
-            onClick={() => !disabled && onChange(!checked)}
-            className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${checked ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'}`}
-        >
-            <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${checked ? 'translate-x-4' : 'translate-x-0'}`} />
-        </button>
-    </div>
-);
 
 // --- Section 1: Account ---
-const AccountSection = ({ data, onUpdate }: { data: AccountSettings, onUpdate: (d: AccountSettings) => void }) => (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
-        <div className="flex items-center gap-4">
-            <img src={data.avatarUrl} className="w-16 h-16 rounded-full border-2 border-gray-200 dark:border-gray-700" />
-            <div className="space-y-2">
-                <button className="text-xs bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-md font-medium hover:bg-gray-200 transition">Change Avatar</button>
-                <p className="text-[10px] text-gray-400">Max size 2MB (JPG/PNG)</p>
-            </div>
-        </div>
+// const AccountSection = ({ data, onUpdate }: { data: AccountSettings, onUpdate: (d: AccountSettings) => void }) => (
+//     <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+//         <div className="flex items-center gap-4">
+//             <img src={data.avatarUrl} className="w-16 h-16 rounded-full border-2 border-gray-200 dark:border-gray-700" />
+//             <div className="space-y-2">
+//                 <button className="text-xs bg-gray-100 dark:bg-gray-800 px-3 py-1 rounded-md font-medium hover:bg-gray-200 transition">Change Avatar</button>
+//                 <p className="text-[10px] text-gray-400">Max size 2MB (JPG/PNG)</p>
+//             </div>
+//         </div>
 
-        <div className="grid gap-4 max-w-lg">
-            <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Display Name</label>
-                <input 
-                    type="text" 
-                    value={data.displayName} 
-                    onChange={(e) => onUpdate({ ...data, displayName: e.target.value })}
-                    className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
-                />
-            </div>
+//         <div className="grid gap-4 max-w-lg">
+//             <div>
+//                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Display Name</label>
+//                 <input 
+//                     type="text" 
+//                     value={data.displayName} 
+//                     onChange={(e) => onUpdate({ ...data, displayName: e.target.value })}
+//                     className="w-full bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+//                 />
+//             </div>
             
-            <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Account Mode</label>
-                <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900 rounded-md">
-                    <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-sm font-medium text-indigo-900 dark:text-indigo-200">{data.accountType} Plan</span>
-                    <span className="text-[10px] ml-auto bg-white dark:bg-black/20 px-2 py-0.5 rounded text-indigo-600 dark:text-indigo-300">Locked</span>
-                </div>
-                <p className="text-[10px] text-gray-400 mt-1">Contact support to upgrade to Team.</p>
-            </div>
-        </div>
+//             <div>
+//                 <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Account Mode</label>
+//                 <div className="flex items-center gap-2 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900 rounded-md">
+//                     <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+//                     <span className="text-sm font-medium text-indigo-900 dark:text-indigo-200">{data.accountType} Plan</span>
+//                     <span className="text-[10px] ml-auto bg-white dark:bg-black/20 px-2 py-0.5 rounded text-indigo-600 dark:text-indigo-300">Locked</span>
+//                 </div>
+//                 <p className="text-[10px] text-gray-400 mt-1">Contact support to upgrade to Team.</p>
+//             </div>
+//         </div>
 
-        <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
-            <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Shield className="w-4 h-4" /> Security
-            </h3>
-            <Toggle 
-                label="Two-Factor Authentication" 
-                description="Secure your account with an authenticator app."
-                checked={data.twoFactorEnabled}
-                onChange={(v: boolean) => onUpdate({ ...data, twoFactorEnabled: v })}
-            />
-        </div>
-    </div>
-);
+//         <div className="pt-6 border-t border-gray-100 dark:border-gray-800">
+//             <h3 className="text-sm font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+//                 <Shield className="w-4 h-4" /> Security
+//             </h3>
+//             <Toggle 
+//                 label="Two-Factor Authentication" 
+//                 description="Secure your account with an authenticator app."
+//                 checked={data.twoFactorEnabled}
+//                 onChange={(v: boolean) => onUpdate({ ...data, twoFactorEnabled: v })}
+//             />
+//         </div>
+//     </div>
+// );
 
 // --- Section 2: Personas (Complex List Logic) ---
 const PersonaSection = ({ data, onUpdate }: { data: PersonaSettings, onUpdate: (d: PersonaSettings) => void }) => {
@@ -336,7 +338,8 @@ const EnvoySection = ({ data, onUpdate }: { data: EnvoySettings, onUpdate: (d: E
 // ==========================================
 
 export default function SettingsPage() {
-    const [activeTab, setActiveTab] = useState<'account' | 'personas' | 'envoy' | 'visuals'>('account');
+    // Default Page State
+    const [activeTab, setActiveTab] = useState<'personas' | 'envoy' | 'visuals'>('personas');
     const [settings, setSettings] = useState<UserSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [syncState, setSyncState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
@@ -381,7 +384,6 @@ export default function SettingsPage() {
     if (!settings) return null;
 
     const tabs = [
-        { id: 'account', label: 'Account & Identity', icon: User },
         { id: 'personas', label: 'Persona System', icon: Users },
         { id: 'envoy', label: 'Envoy AI', icon: Bot },
         { id: 'visuals', label: 'Visualization', icon: Monitor },
@@ -445,12 +447,6 @@ export default function SettingsPage() {
 
                     {/* Dynamic Content */}
                     <div className="min-h-[400px]">
-                        {activeTab === 'account' && (
-                            <AccountSection 
-                                data={settings.account} 
-                                onUpdate={(d) => handleUpdate('account', d)} 
-                            />
-                        )}
                         {activeTab === 'personas' && (
                             <PersonaSection 
                                 data={settings.personas} 

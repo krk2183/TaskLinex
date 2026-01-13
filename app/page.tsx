@@ -197,14 +197,14 @@ const SprintHealthCard  = ({ data }: { data: ProjectHealth }) => {
     const currentDayIndex = 15; // Example: we are at bar 15 of 25
 
     return (
-        <div className="bg-white dark:bg-gray-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-sm md:col-span-2 flex items-center justify-between group">
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-sm md:col-span-2 flex items-center justify-between group">
             <div className="flex-1">
-                <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mb-2">Sprint Health</p>
+                <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-2">Sprint Health</p>
                 <div className="flex items-center gap-4 text-sm font-medium">
-                    <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                    <span className="flex items-center gap-1.5 text-slate-300">
                         <CheckCircle className="w-4 h-4 text-emerald-500" /> {data.sprint.completed} Done
                     </span>
-                    <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
+                    <span className="flex items-center gap-1.5 text-slate-300">
                         <Clock className="w-4 h-4 text-indigo-500" /> {data.sprint.daysLeft}d left
                     </span>
                 </div>
@@ -257,7 +257,7 @@ const StatusPill = ({ status }: { status: string }) => {
         offline: 'bg-gray-400'
     };
     return (
-        <span className={`h-2.5 w-2.5 rounded-full ${colors[status as keyof typeof colors] || colors.offline} ring-2 ring-white dark:ring-gray-900`} />
+        <span className={`h-2.5 w-2.5 rounded-full ${colors[status as keyof typeof colors] || colors.offline} ring-2 ring-slate-950`} />
     );
 };
 
@@ -267,7 +267,7 @@ const WorkloadIndicator = ({ level }: { level: number }) => {
     if (level > 90) color = 'bg-rose-500';
 
     return (
-        <div className="w-16 h-1.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+        <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
             <div 
                 className={`h-full ${color} transition-all duration-500`} 
                 style={{ width: `${level}%` }} 
@@ -291,11 +291,11 @@ const PulseInsights = ({ data }: { data: ProjectHealth }) => {
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
             {/* 1. Velocity Card (Always visible) */}
-            <div className="bg-white dark:bg-gray-900 border border-indigo-100 dark:border-indigo-900/30 p-4 rounded-xl shadow-sm flex items-center justify-between">
+            <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-sm flex items-center justify-between">
                 <div>
-                    <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">Team Velocity</p>
+                    <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Team Velocity</p>
                     <div className="flex items-center gap-2 mt-1">
-                        <span className={`${status.textSize} font-black text-gray-900 dark:text-white`}>{data.velocity}</span>
+                        <span className={`${status.textSize} font-black text-slate-200`}>{data.velocity}</span>
                         <TrendingUp className={`w-5 h-5 ${status.color}`} />
                     </div>
                 </div>
@@ -306,10 +306,10 @@ const PulseInsights = ({ data }: { data: ProjectHealth }) => {
 
             {/* 2. Blockers Card (Only renders if count > 0) */}
             {data.blockers.count > 0 && (
-                <div className={`bg-white dark:bg-gray-900 border ${isBlocker ? 'border-rose-200 dark:border-rose-900/50' : 'border-amber-200 dark:border-amber-900/50'} p-4 rounded-xl shadow-sm flex items-center justify-between relative overflow-hidden`}>
+                <div className={`bg-slate-900 border ${isBlocker ? 'border-rose-200 dark:border-rose-900/50' : 'border-amber-200 dark:border-amber-900/50'} p-4 rounded-xl shadow-sm flex items-center justify-between relative overflow-hidden`}>
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${isBlocker ? 'bg-rose-500' : 'bg-amber-500'}`} />
                     <div>
-                        <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">
+                        <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">
                             {isBlocker ? 'Active Blockers' : 'External Dependencies'}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
@@ -318,7 +318,8 @@ const PulseInsights = ({ data }: { data: ProjectHealth }) => {
                             </span>
                         </div>
                     </div>
-                        <button className={`
+                        <a href="/analytics" 
+                       className={`
                             text-xs px-4 py-2 rounded-lg font-bold
                             transition-all duration-200 ease-out
                             cursor-pointer outline-none active:scale-95                            
@@ -335,23 +336,23 @@ const PulseInsights = ({ data }: { data: ProjectHealth }) => {
                             }
                         `}>
                             View
-                        </button>
+                        </a>
                 </div>
             )}
 
             {/* 3. Sprint Health (Only renders if there are days left) */}
             {data.sprint.daysLeft > 0 && (
-                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 p-4 rounded-xl shadow-sm flex items-center justify-between md:col-span-2">
+                <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-sm flex items-center justify-between md:col-span-2">
                     <div className="flex-1">
-                        <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold mb-2">Sprint Health</p>
+                        <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-2">Sprint Health</p>
                         <div className="flex items-center gap-4 text-sm">
-                            <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                            <span className="flex items-center gap-1.5 text-slate-300">
                                 <Clock className="w-4 h-4 text-indigo-500" /> {data.sprint.daysLeft} days left
                             </span>
-                            <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                            <span className="flex items-center gap-1.5 text-slate-300">
                                 <CheckCircle className="w-4 h-4 text-emerald-500" /> {data.sprint.completed} Completed
                             </span>
-                             <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                             <span className="flex items-center gap-1.5 text-slate-300">
                                 <Layers className="w-4 h-4 text-amber-500" /> {data.sprint.remaining} Remaining
                             </span>
                         </div>
@@ -368,12 +369,12 @@ const PulseInsights = ({ data }: { data: ProjectHealth }) => {
 
 const TeamSidebar = ({ members }: { members: TeamMember[] }) => {
     return (
-        <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-5 h-fit sticky top-6 shadow-lg">
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 h-fit sticky top-6 shadow-lg">
             <div className="flex items-center justify-between mb-6">
-                <h3 className="font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <h3 className="font-bold text-slate-200 flex items-center gap-2">
                     <Users className="w-4 h-4 text-indigo-500" /> Team Pulse
                 </h3>
-                <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-gray-500">{Team.filter(member => member.status === 'online').length} Online</span>
+                <span className="text-xs bg-slate-800 px-2 py-1 rounded text-slate-400">{Team.filter(member => member.status === 'online').length} Online</span>
             </div>
 
             <div className="space-y-5">
@@ -381,20 +382,20 @@ const TeamSidebar = ({ members }: { members: TeamMember[] }) => {
                     <div key={member.id} className="group relative">
                         <div className="flex items-start gap-3">
                             <div className="relative">
-                                <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full object-cover border-2 border-gray-100 dark:border-gray-800" />
+                                <img src={member.avatar} alt={member.name} className="w-10 h-10 rounded-full object-cover border-2 border-slate-800" />
                                 <div className="absolute -bottom-1 -right-1">
                                     <StatusPill status={member.status} />
                                 </div>
                             </div>
                             <div className="flex-1 min-w-0">
                                 <div className="flex justify-between items-center mb-0.5">
-                                    <h4 className="text-sm font-bold text-gray-900 dark:text-gray-100">{member.name}</h4>
-                                    <span className="text-[10px] text-gray-400">{member.role}</span>
+                                    <h4 className="text-sm font-bold text-slate-200">{member.name}</h4>
+                                    <span className="text-[10px] text-slate-500">{member.role}</span>
                                 </div>
                                 <WorkloadIndicator level={member.workload} />
                                 {member.currentTask && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate group-hover:text-indigo-500 transition-colors">
-                                        <Activity className="w-3 h-3 inline mr-1 text-gray-400" />
+                                    <p className="text-xs text-slate-400 mt-1 truncate group-hover:text-indigo-500 transition-colors">
+                                        <Activity className="w-3 h-3 inline mr-1 text-slate-500" />
                                         {member.currentTask}
                                     </p>
                                 )}
@@ -404,8 +405,8 @@ const TeamSidebar = ({ members }: { members: TeamMember[] }) => {
                 ))}
             </div>
             
-            <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800 text-center">
-                <button className="text-sm text-indigo-600 font-semibold hover:underline">View Schedule</button>
+            <div className="mt-6 pt-6 border-t border-slate-800 text-center">
+                <button className="text-sm text-indigo-400 font-semibold hover:underline">View Schedule</button>
             </div>
         </div>
     );
@@ -450,10 +451,10 @@ const FeedItem = ({ event }: { event: PulseEvent }) => {
             {/* Content Card */}
             <div className={`flex-1 p-4 rounded-xl border ${style.border} ${style.bg} relative group transition-all hover:shadow-md`}>
                 <div className="flex justify-between items-start mb-1">
-                    <p className="text-sm text-gray-900 dark:text-gray-100">
-                        <span className="font-bold">{event.actor.name}</span> <span className="text-gray-600 dark:text-gray-400 font-normal">{event.details}</span> <span className="font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">"{event.targetTask}"</span>
+                    <p className="text-sm text-slate-200">
+                        <span className="font-bold">{event.actor.name}</span> <span className="text-slate-400 font-normal">{event.details}</span> <span className="font-semibold text-indigo-400 hover:underline cursor-pointer">"{event.targetTask}"</span>
                     </p>
-                    <span className="text-xs text-gray-400 whitespace-nowrap ml-2">{event.timestamp}</span>
+                    <span className="text-xs text-slate-500 whitespace-nowrap ml-2">{event.timestamp}</span>
                 </div>
 
                 {/* Metadata / Details */}
@@ -466,23 +467,23 @@ const FeedItem = ({ event }: { event: PulseEvent }) => {
                 )}
                 {/* WHEN CONTINUING */}
                 {event.metadata?.from && (
-                    <div className="mt-2 flex items-center gap-2 text-xs font-mono text-gray-500">
+                    <div className="mt-2 flex items-center gap-2 text-xs font-mono text-slate-400">
                         {/* TASK FROM */}
-                        <span className="px-2 py-0.5 bg-white/50 dark:bg-black/20 rounded">{event.metadata.from}</span>
+                        <span className="px-2 py-0.5 bg-slate-800/50 rounded">{event.metadata.from}</span>
                         <ArrowRight className="w-3 h-3" />
                         {/* TASK TO */}
-                        <span className="px-2 py-0.5 bg-white/50 dark:bg-black/20 rounded font-bold text-gray-700 dark:text-gray-300">{event.metadata.to}</span>
+                        <span className="px-2 py-0.5 bg-slate-800/50 rounded font-bold text-slate-200">{event.metadata.to}</span>
                     </div>
                 )}
 
                 {/* Action Options */}
                 <div className="mt-3 flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                     {event.actionRequired ? (
-                        <button className="text-xs flex items-center gap-1 bg-white dark:bg-gray-900 px-3 py-1.5 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm text-gray-700 dark:text-gray-200 hover:text-emerald-500 font-semibold">
+                        <button className="text-xs flex items-center gap-1 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-700 shadow-sm text-slate-200 hover:text-emerald-500 font-semibold">
                             <CheckCircle className="w-3 h-3" /> Resolve
                         </button>
                     ) : (
-                         <button className="text-xs flex items-center gap-1 bg-transparent hover:bg-white/50 dark:hover:bg-black/20 px-2 py-1 rounded text-gray-500">
+                         <button className="text-xs flex items-center gap-1 bg-transparent hover:bg-slate-800/50 px-2 py-1 rounded text-slate-400">
                             <MessageSquare className="w-3 h-3" /> Reply
                         </button>
                     )}
@@ -494,9 +495,9 @@ const FeedItem = ({ event }: { event: PulseEvent }) => {
 
 const ActivityStream = ({ events }: { events: PulseEvent[] }) => {
     return (
-        <div className="bg-white dark:bg-gray-950 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800 min-h-[600px]">
+        <div className="bg-slate-950 rounded-2xl p-6 shadow-sm border border-slate-800 min-h-[600px]">
             <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                <h2 className="text-2xl font-bold text-slate-200 flex items-center gap-2">
                     Activity Stream
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 </h2>
@@ -508,10 +509,10 @@ const ActivityStream = ({ events }: { events: PulseEvent[] }) => {
                         <input 
                             type="text" 
                             placeholder="Filter feed..." 
-                            className="pl-9 pr-4 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-48 transition-all focus:w-64"
+                            className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-48 transition-all focus:w-64"
                         />
                     </div>
-                    <button className="p-2 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-900 text-gray-500">
+                    <button className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 text-slate-400">
                         <Filter className="w-4 h-4" />
                     </button>
                 </div>
@@ -525,7 +526,7 @@ const ActivityStream = ({ events }: { events: PulseEvent[] }) => {
             </div>
 
              <div className="mt-8 text-center">
-                <button className="text-sm text-gray-500 hover:text-indigo-500 transition-colors flex items-center justify-center w-full gap-2">
+                <button className="text-sm text-slate-400 hover:text-indigo-400 transition-colors flex items-center justify-center w-full gap-2">
                     <Clock className="w-3 h-3" /> Load previous updates
                 </button>
             </div>
@@ -537,10 +538,10 @@ const ActivityStream = ({ events }: { events: PulseEvent[] }) => {
 
 const PulseFocus = () => {
     return (
-        <div className="bg-[#0A0E17] text-white p-6 rounded-2xl shadow-2xl border border-indigo-500/30 sticky top-6">
+        <div className="bg-slate-950 text-white p-6 rounded-2xl shadow-2xl border border-indigo-500/30 sticky top-6">
             <div className="flex justify-between items-start mb-6">
                 <div>
-                    <h3 className="text-sm text-gray-400 uppercase tracking-widest font-bold mb-1">My Focus</h3>
+                    <h3 className="text-sm text-slate-400 uppercase tracking-widest font-bold mb-1">My Focus</h3>
                     <h2 className="text-xl font-bold">Forge.AI - V1</h2>
                 </div>
                 <div className="bg-red-600 animate-pulse px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
@@ -549,13 +550,13 @@ const PulseFocus = () => {
             </div>
 
             <div className="space-y-4">
-                <div className="bg-gray-800/50 p-4 rounded-xl border-l-4 border-indigo-500">
-                    <div className="flex justify-between text-xs text-gray-400 mb-2">
+                <div className="bg-slate-800/50 p-4 rounded-xl border-l-4 border-indigo-500">
+                    <div className="flex justify-between text-xs text-slate-400 mb-2">
                         <span>Current Step</span>
                         <span>53%</span>
                     </div>
                     <p className="font-medium text-sm">Enhance Clarity of model outputs</p>
-                    <div className="w-full bg-gray-700 h-1.5 rounded-full mt-3 overflow-hidden">
+                    <div className="w-full bg-slate-700 h-1.5 rounded-full mt-3 overflow-hidden">
                         <div className="bg-indigo-500 h-full w-[53%]" />
                     </div>
                 </div>
@@ -563,12 +564,12 @@ const PulseFocus = () => {
                 {/*🚧🚧 UNDER CONSTRUCTION 🚧🚧*/}
                 {/* IMPLEMENT FACTORY FUNCTIONALITY */}
                 <div className="space-y-2">
-                    <p className="text-xs font-bold text-gray-500 uppercase">Up Next</p>
+                    <p className="text-xs font-bold text-slate-400 uppercase">Up Next</p>
                     {upcomingTasks.map((task)=>(
-                    <div key={task.id || task.step} className={`flex items-center justify-between p-3 ${task.isHighPriority? 'bg-rose-800/30' :'bg-gray-800/30'} rounded-lg hover:bg-gray-800 transition cursor-pointer group`}>
+                    <div key={task.id || task.step} className={`flex items-center justify-between p-3 ${task.isHighPriority? 'bg-rose-900/30' :'bg-slate-800/30'} rounded-lg hover:bg-slate-800 transition cursor-pointer group`}>
                             <div className="flex items-center gap-3">
-                                <CheckCircle className="w-4 h-4 text-gray-600 group-hover:text-indigo-400" />
-                                <span className="text-sm text-gray-300">{task.step}</span>
+                                <CheckCircle className="w-4 h-4 text-slate-500 group-hover:text-indigo-400" />
+                                <span className="text-sm text-slate-300">{task.step}</span>
                             </div>
                             {task.isHighPriority&&<Zap className="w-3 h-3 text-red-400" />}
                         </div>
@@ -601,25 +602,25 @@ const PulseFocus = () => {
 
 export default function PulsePage() {
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#050505] text-gray-900 dark:text-gray-100 p-4 md:p-8 font-sans selection:bg-indigo-500/30">
+        <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-sans selection:bg-indigo-500/30">
             {/* Header Area */}
             <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row justify-between items-end gap-6">
                 <div>
                     <h1 className="text-4xl font-extrabold tracking-tight mb-2">
                         TaskLinex <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">Pulse</span>
                     </h1>
-                    <p className="text-gray-500 dark:text-gray-400 text-lg">
+                    <p className="text-slate-400 text-lg">
                         Synchronize with your team without the meetings.
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="flex -space-x-3">
                          {Team.map(m => (
-                             <img key={m.id} src={m.avatar} className="w-8 h-8 rounded-full border-2 border-white dark:border-black" />
+                             <img key={m.id} src={m.avatar} className="w-8 h-8 rounded-full border-2 border-slate-950" />
                          ))}
-                         <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-xs font-bold border-2 border-white dark:border-black">+2</div>
+                         <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold border-2 border-slate-950">+2</div>
                     </div>
-                    <button className="bg-white dark:bg-gray-800 text-sm font-semibold px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                    <button className="bg-slate-900 text-sm font-semibold px-4 py-2 rounded-lg border border-slate-700 hover:bg-slate-800 transition">
                         Invite
                     </button>
                 </div>
@@ -644,8 +645,8 @@ export default function PulsePage() {
                         <PulseFocus />
                         
                         {/* Mini Widget: Upcoming Deadlines */}
-                        <div className="mt-6 bg-white dark:bg-gray-900 p-5 rounded-2xl border border-gray-200 dark:border-gray-800">
-                             <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-4 flex items-center gap-2">
+                        <div className="mt-6 bg-slate-900 p-5 rounded-2xl border border-slate-800">
+                             <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wide mb-4 flex items-center gap-2">
                                 <Calendar className="w-4 h-4" /> This Week
                              </h4>
                              <div className="space-y-3">
