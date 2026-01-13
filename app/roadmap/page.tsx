@@ -468,6 +468,8 @@ export default function RoadmapPage() {
         dispatch({ type: 'SET_LOADING', payload: false });
     };
 
+    const [addVisible,setAVisible] = useState(false);
+
     if (state.isLoading) {
         return <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0B1120] text-slate-400">Loading Execution Environment...</div>;
     }
@@ -596,16 +598,24 @@ export default function RoadmapPage() {
                                                                 isEnvoyActive={state.envoyActive === task.id}
                                                             />
                                                         )}
+                                                        
                                                     </div>
                                                 ))}
                                             </div>
                                         </div>
                                     );
                                 })}
-                            </div>
+                            </div>                        
                         </div>
                     </div>
+                    <div className='fixed bottom-6 right-6 z-50' id='addButton'>
+                        <button className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-[12px] p-4 shadow-lg transition-transform hover:scale-110"
+                        onClick={()=>setAVisible(!addVisible)}>
+                            <Plus className="w-15 h-6" />
+                        </button>
+                    </div>
                 </div>
+
             </div>
         </AppContext.Provider>
     );
