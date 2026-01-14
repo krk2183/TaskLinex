@@ -146,49 +146,108 @@ const RippleGraph = ({ tasks, onHoverNode }) => {
   );
 };
 
-// C. Leakage Metric
-const CommunicationLeakage = ({ tasks }) => {
-  const maxLeakage = Math.max(...tasks.map(t => t.leakageHours));
-  
+
+interface CommunicationLeakageProps {
+  tasks: Task[];
+}
+
+const CommunicationLeakage: React.FC<CommunicationLeakageProps> = ({ tasks }) => {
+  const [hoveredId, setHoveredId] = useState<string | number | null>(null);
+
   return (
-    <div className="space-y-4">
-      {tasks.slice(0, 3).map(task => (
-        <div key={task.id} className="group cursor-pointer">
-          <div className="flex justify-between text-sm mb-1">
-            <span className="text-slate-300">{task.title}</span>
-            <span className="text-slate-500 text-xs">{task.leakageHours}h Lost</span>
-          </div>
-          <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden relative">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${(task.leakageHours / 15) * 100}%` }}
-              transition={{ duration: 1, ease: "circOut" }}
-              className={`h-full rounded-full ${task.leakageHours > 5 ? 'bg-gradient-to-r from-orange-500 to-red-500' : 'bg-slate-600'}`}
-            />
-          </div>
-          {/* Expanded Context on Hover (Simulated Pulse Integration) */}
-          <div className="h-0 overflow-hidden group-hover:h-auto group-hover:mt-2 transition-all">
-            <div className="bg-slate-900/50 border border-slate-800 p-2 rounded text-xs text-slate-400 flex items-start gap-2">
-                <MessageSquareWarning size={12} className="mt-0.5 text-orange-400"/>
-                {task.leakageHours > 5 
-                  ? "Excessive Slack threads detected. 42 messages exchanged regarding 'Auth Headers'. Suggest rapid sync." 
-                  : "Normal communication levels."}
+    <div className="space-y-2 relative overflow-visible" onMouseLeave={() => setHoveredId(null)}>
+      {tasks.slice(0, 3).map((task) => {
+        const isHovered = hoveredId === task.id;
+        const isHighLeakage = task.leakageHours > 5;
+
+        return (
+          <motion.div
+            key={task.id}
+            onMouseEnter={() => setHoveredId(task.id)}
+            className={`relative p-3 rounded-xl transition-all duration-300 border ${
+              isHovered 
+                ? 'bg-slate-800/80 border-slate-700 shadow-lg z-30 scale-[1.02]' 
+                : 'bg-slate-900/20 border-transparent hover:bg-slate-800/40 z-0'
+            }`}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center mb-2">
+              <span className={`text-sm font-medium transition-colors ${isHovered ? 'text-white' : 'text-slate-400'}`}>
+                {task.title}
+              </span>
+              <span className={`text-xs font-mono ${isHighLeakage ? 'text-orange-400' : 'text-slate-500'}`}>
+                -{task.leakageHours}h
+              </span>
             </div>
-          </div>
-        </div>
-      ))}
+
+            {/* Progress Bar */}
+            <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min((task.leakageHours / 15) * 100, 100)}%` }}
+                transition={{ duration: 1, ease: "circOut" }}
+                className={`h-full rounded-full shadow-sm ${
+                  isHighLeakage 
+                    ? 'bg-gradient-to-r from-orange-500 to-red-500' 
+                    : 'bg-slate-600'
+                }`}
+              />
+            </div>
+
+            <AnimatePresence>
+              {isHovered && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 4, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                  transition={{ duration: 0.2, ease: "easeOut" }}
+                  className="absolute left-0 right-0 top-full z-50 px-1 pointer-events-none"
+                >
+                  <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700 p-3 rounded-lg shadow-2xl ring-1 ring-black/50">
+                    <div className="flex items-start gap-3">
+                      <MessageSquareWarning 
+                        size={16} 
+                        className={`mt-0.5 shrink-0 ${isHighLeakage ? 'text-orange-400' : 'text-slate-500'}`} 
+                      />
+                      <div className="space-y-1">
+                        <div className="text-xs text-slate-300 leading-relaxed">
+                          {isHighLeakage ? (
+                            <>
+                              <span className="text-orange-200 font-semibold">High Friction:</span> 
+                              {" "}Heavy Slack volume detected. 42 messages exchanged.
+                            </>
+                          ) : (
+                            "Communication flow is within healthy parameters."
+                          )}
+                        </div>
+                        {isHighLeakage && (
+                          <div className="flex gap-2 pt-1">
+                             <span className="text-[10px] bg-orange-500/10 text-orange-400 px-1.5 py-0.5 rounded border border-orange-500/20">
+                                Suggest Sync
+                             </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        );
+      })}
     </div>
   );
 };
 
+
 // D. Heatmap Cell
 const HeatmapCell = ({ load }) => {
-  // Simple visual logic for load intensity
   let bgClass = "bg-slate-800/50";
   if (load > 0) bgClass = "bg-blue-900/30";
   if (load > 50) bgClass = "bg-blue-600/40";
   if (load > 80) bgClass = "bg-blue-500";
-  if (load > 100) bgClass = "bg-red-500"; // Overload
+  if (load > 100) bgClass = "bg-red-500"; // Overload color
 
   return (
     <motion.div 
