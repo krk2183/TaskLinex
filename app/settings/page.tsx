@@ -333,9 +333,9 @@ const EnvoySection = ({ data, onUpdate }: { data: EnvoySettings, onUpdate: (d: E
     </div>
 );
 
-// ==========================================
+
 // 4. MAIN PAGE CONTROLLER
-// ==========================================
+
 
 export default function SettingsPage() {
     // Default Page State
@@ -352,23 +352,21 @@ export default function SettingsPage() {
         });
     }, []);
 
-    // Optimistic Update Handler
     const handleUpdate = useCallback(async (section: keyof UserSettings, newData: any) => {
         if (!settings) return;
         
         const previousData = settings[section];
         
-        // 1. Optimistic UI Update
         setSettings(prev => prev ? ({ ...prev, [section]: newData }) : null);
         setSyncState('saving');
 
         try {
-            // 2. API Call
+            // API Call
             await SettingsAPI.patch(section, newData);
             setSyncState('saved');
             setTimeout(() => setSyncState('idle'), 2000);
         } catch (err) {
-            // 3. Rollback on failure
+            // Rollback on failure
             console.error(err);
             setSettings(prev => prev ? ({ ...prev, [section]: previousData }) : null);
             setSyncState('error');
@@ -431,9 +429,7 @@ export default function SettingsPage() {
 
             {/* MAIN CONTENT */}
             <main className="flex-1 overflow-y-auto">
-                <div className="max-w-3xl mx-auto py-8 px-6 md:px-12">
-                    
-                    {/* Header with Sync Status */}
+                <div className="max-w-3xl mx-auto py-8 px-6 md:px-12">                    
                     <div className="flex justify-between items-center mb-8 border-b border-gray-200 dark:border-gray-800 pb-4">
                         <h2 className="text-2xl font-bold">
                             {tabs.find(t => t.id === activeTab)?.label}

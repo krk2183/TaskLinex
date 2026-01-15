@@ -188,17 +188,13 @@ const currentStats: ProjectHealth = {
 
 // Sprint Health Graph
 const SprintHealthCard  = ({ data }: { data: ProjectHealth }) => {
-    // 1. Setup the Timeline
     const totalSlots = 25;
     const totalTasks = data.sprint.completed + data.sprint.remaining;
-    
-    // Assume a 30-day sprint cycle for the 25-bar scale
-    // Or use (totalSlots - data.sprint.daysLeft) to find the "current" bar
     const currentDayIndex = 15; // Example: we are at bar 15 of 25
 
     return (
-        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-sm md:col-span-2 flex items-center justify-between group">
-            <div className="flex-1">
+        <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-sm md:col-span-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 group">
+            <div className="flex-1 w-full sm:w-auto">
                 <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mb-2">Sprint Health</p>
                 <div className="flex items-center gap-4 text-sm font-medium">
                     <span className="flex items-center gap-1.5 text-slate-300">
@@ -207,18 +203,18 @@ const SprintHealthCard  = ({ data }: { data: ProjectHealth }) => {
                     <span className="flex items-center gap-1.5 text-slate-300">
                         <Clock className="w-4 h-4 text-indigo-500" /> {data.sprint.daysLeft}d left
                     </span>
+                    <span className="flex items-center gap-1.5 text-slate-300">
+                        <Layers className="w-4 h-4 text-amber-500" /> {data.sprint.remaining} Remaining
+                    </span>
                 </div>
             </div>
 
-            <div className="w-52 h-14 flex items-end gap-[2px]">
+            <div className="w-full sm:w-52 h-14 flex items-end gap-[2px]">
                 {Array.from({ length: totalSlots }).map((_, i) => {
                     // 2. Logic: Is this bar in the past, present, or future?
                     const isPast = i < currentDayIndex;
                     const isCurrent = i === currentDayIndex;
                     
-                    // Calculate height: 
-                    // Past bars use a simulated growth curve based on total completion
-                    // Future bars stay low (the 'remaining' work)
                     let barHeight = 0;
                     if (isPast) {
                         barHeight = (i / currentDayIndex) * (data.sprint.completed / totalTasks) * 100;
@@ -247,6 +243,9 @@ const SprintHealthCard  = ({ data }: { data: ProjectHealth }) => {
         </div>
     );
 };
+
+
+
 
 // --- HELPER COMPONENTS ---
 
@@ -290,7 +289,6 @@ const PulseInsights = ({ data }: { data: ProjectHealth }) => {
 
     return (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-            {/* 1. Velocity Card (Always visible) */}
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-sm flex items-center justify-between">
                 <div>
                     <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold">Team Velocity</p>
@@ -303,8 +301,6 @@ const PulseInsights = ({ data }: { data: ProjectHealth }) => {
                     <Zap className={`w-5 h-5 ${status.iconColor}`} />
                 </div>
             </div>
-
-            {/* 2. Blockers Card (Only renders if count > 0) */}
             {data.blockers.count > 0 && (
                 <div className={`bg-slate-900 border ${isBlocker ? 'border-rose-200 dark:border-rose-900/50' : 'border-amber-200 dark:border-amber-900/50'} p-4 rounded-xl shadow-sm flex items-center justify-between relative overflow-hidden`}>
                     <div className={`absolute left-0 top-0 bottom-0 w-1 ${isBlocker ? 'bg-rose-500' : 'bg-amber-500'}`} />
@@ -340,27 +336,9 @@ const PulseInsights = ({ data }: { data: ProjectHealth }) => {
                 </div>
             )}
 
-            {/* 3. Sprint Health (Only renders if there are days left) */}
+            {/* SPRINT HEALTH FIELD */}
             {data.sprint.daysLeft > 0 && (
-                <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-sm flex items-center justify-between md:col-span-2">
-                    <div className="flex-1">
-                        <p className="text-xs text-slate-400 uppercase tracking-widest font-semibold mb-2">Sprint Health</p>
-                        <div className="flex items-center gap-4 text-sm">
-                            <span className="flex items-center gap-1.5 text-slate-300">
-                                <Clock className="w-4 h-4 text-indigo-500" /> {data.sprint.daysLeft} days left
-                            </span>
-                            <span className="flex items-center gap-1.5 text-slate-300">
-                                <CheckCircle className="w-4 h-4 text-emerald-500" /> {data.sprint.completed} Completed
-                            </span>
-                             <span className="flex items-center gap-1.5 text-slate-300">
-                                <Layers className="w-4 h-4 text-amber-500" /> {data.sprint.remaining} Remaining
-                            </span>
-                        </div>
-                    </div>
-                    {data.sprint.daysLeft>0 && (
-                        <SprintHealthCard data={data}/>
-                    )}
-                </div>
+                <SprintHealthCard data={data} />
             )}
         </div>
     );
@@ -432,7 +410,7 @@ const FeedItem = ({ event }: { event: PulseEvent }) => {
     const Icon = style.icon;
 
     return (
-        <div className="flex gap-4 relative pb-8 last:pb-0">
+        <div className="flex gap-3 sm:gap-4 relative pb-8 last:pb-0">
             {/* Timeline Line */}
             <div className="absolute left-[19px] top-10 bottom-0 w-0.5 bg-gray-200 dark:bg-gray-800 last:hidden" />
 
@@ -449,12 +427,12 @@ const FeedItem = ({ event }: { event: PulseEvent }) => {
             </div>
 
             {/* Content Card */}
-            <div className={`flex-1 p-4 rounded-xl border ${style.border} ${style.bg} relative group transition-all hover:shadow-md`}>
-                <div className="flex justify-between items-start mb-1">
+            <div className={`flex-1 p-3 sm:p-4 rounded-xl border ${style.border} ${style.bg} relative group transition-all hover:shadow-md`}>
+                <div className="flex flex-col sm:flex-row sm:justify-between items-start mb-1 gap-1 sm:gap-0">
                     <p className="text-sm text-slate-200">
                         <span className="font-bold">{event.actor.name}</span> <span className="text-slate-400 font-normal">{event.details}</span> <span className="font-semibold text-indigo-400 hover:underline cursor-pointer">"{event.targetTask}"</span>
                     </p>
-                    <span className="text-xs text-slate-500 whitespace-nowrap ml-2">{event.timestamp}</span>
+                    <span className="text-xs text-slate-500 whitespace-nowrap ml-0 sm:ml-2">{event.timestamp}</span>
                 </div>
 
                 {/* Metadata / Details */}
@@ -477,7 +455,7 @@ const FeedItem = ({ event }: { event: PulseEvent }) => {
                 )}
 
                 {/* Action Options */}
-                <div className="mt-3 flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="mt-3 flex gap-3 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity">
                     {event.actionRequired ? (
                         <button className="text-xs flex items-center gap-1 bg-slate-900 px-3 py-1.5 rounded-full border border-slate-700 shadow-sm text-slate-200 hover:text-emerald-500 font-semibold">
                             <CheckCircle className="w-3 h-3" /> Resolve
@@ -495,21 +473,21 @@ const FeedItem = ({ event }: { event: PulseEvent }) => {
 
 const ActivityStream = ({ events }: { events: PulseEvent[] }) => {
     return (
-        <div className="bg-slate-950 rounded-2xl p-6 shadow-sm border border-slate-800 min-h-[600px]">
-            <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold text-slate-200 flex items-center gap-2">
+        <div className="bg-slate-950 rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-800 min-h-[600px]">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-4 sm:gap-0">
+                <h2 className="text-xl sm:text-2xl font-bold text-slate-200 flex items-center gap-2">
                     Activity Stream
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                 </h2>
                 
-                {/* 🔎🔎SEARCH FILED 🔎🔎 */}
-                <div className="flex gap-2">
-                     <div className="relative">
+                {/* 🔎🔎SEARCH FIELD 🔎🔎 */}
+                <div className="flex gap-2 w-full sm:w-auto">
+                     <div className="relative flex-1 sm:flex-none">
                         <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
                         <input 
                             type="text" 
                             placeholder="Filter feed..." 
-                            className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-48 transition-all focus:w-64"
+                            className="pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-48 transition-all focus:w-full sm:focus:w-64"
                         />
                     </div>
                     <button className="p-2 border border-slate-700 rounded-lg hover:bg-slate-800 text-slate-400">
@@ -538,7 +516,7 @@ const ActivityStream = ({ events }: { events: PulseEvent[] }) => {
 
 const PulseFocus = () => {
     return (
-        <div className="bg-slate-950 text-white p-6 rounded-2xl shadow-2xl border border-indigo-500/30 sticky top-6">
+        <div className="bg-slate-950 text-white p-6 rounded-2xl shadow-2xl border border-indigo-500/30 relative lg:sticky lg:top-6">
             <div className="flex justify-between items-start mb-6">
                 <div>
                     <h3 className="text-sm text-slate-400 uppercase tracking-widest font-bold mb-1">My Focus</h3>
@@ -561,8 +539,6 @@ const PulseFocus = () => {
                     </div>
                 </div>
 
-                {/*🚧🚧 UNDER CONSTRUCTION 🚧🚧*/}
-                {/* IMPLEMENT FACTORY FUNCTIONALITY */}
                 <div className="space-y-2">
                     <p className="text-xs font-bold text-slate-400 uppercase">Up Next</p>
                     {upcomingTasks.map((task)=>(
@@ -574,21 +550,8 @@ const PulseFocus = () => {
                             {task.isHighPriority&&<Zap className="w-3 h-3 text-red-400" />}
                         </div>
                     ))}
-                    {/* <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800 transition cursor-pointer group">
-                        <div className="flex items-center gap-3">
-                            <CheckCircle className="w-4 h-4 text-gray-600 group-hover:text-indigo-400" />
-                            <span className="text-sm text-gray-300">${taskList.step}</span>
-                        </div>
-                        <Zap className="w-3 h-3 text-red-400" />
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-gray-800/30 rounded-lg hover:bg-gray-800 transition cursor-pointer group">
-                        <div className="flex items-center gap-3">
-                            <CheckCircle className="w-4 h-4 text-gray-600 group-hover:text-indigo-400" />
-                            <span className="text-sm text-gray-300">Final Validation</span>
-                        </div>
-                    </div> */}
                 </div>
-                {/*🚧🚧 UNDER CONSTRUCTION 🚧🚧*/}
+
             </div>
 
             <button className="w-full mt-6 bg-indigo-600 hover:bg-indigo-700 py-3 rounded-xl font-bold text-sm shadow-lg shadow-indigo-900/50 transition-all transform hover:scale-[1.02]">
@@ -604,7 +567,7 @@ export default function PulsePage() {
     return (
         <div className="min-h-screen bg-slate-950 text-slate-200 p-4 md:p-8 font-sans selection:bg-indigo-500/30">
             {/* Header Area */}
-            <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row justify-between items-end gap-6">
+            <div className="max-w-7xl mx-auto mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
                     <h1 className="text-4xl font-extrabold tracking-tight mb-2">
                         TaskLinex <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-500 to-purple-500">Pulse</span>
@@ -664,7 +627,7 @@ export default function PulsePage() {
                         </div>
                     </div>
                     
-                                        {/* Middle: Activity Feed (50%) */}
+                    {/* Middle: Activity Feed (50%) */}
                     <div className="lg:col-span-6">
                         <ActivityStream events={mockEvents} />
                     </div>

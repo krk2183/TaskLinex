@@ -273,7 +273,6 @@ export default function AnalyticsPage() {
   const [hoveredNode, setHoveredNode] = useState(null);
   const [showEnvoy, setShowEnvoy] = useState(false);
 
-  // Derived state for visuals
   const blockedTasks = MOCK_TASKS.filter(t => t.status === "Blocked");
   const stalledTasks = MOCK_TASKS.filter(t => t.status === "Stalled");
 
@@ -281,7 +280,7 @@ export default function AnalyticsPage() {
     <div className="flex h-screen bg-slate-950 text-slate-200 font-sans selection:bg-blue-500/30 overflow-hidden">
       
 
-      {/* 2. Main Content Area */}
+      {/* Main Content Area */}
       <main className="flex-1 flex flex-col min-w-0 relative">
         
         {/* Header */}
