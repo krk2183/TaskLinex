@@ -4,6 +4,7 @@ import React, {
     createContext, useContext, useReducer, 
     useEffect, useState, useMemo, useRef 
 } from 'react';
+import { createPortal } from 'react-dom';
 import { 
     Calendar, Filter, ZoomIn, ChevronRight, 
     AlertTriangle, CheckCircle, Clock, ArrowRight, 
@@ -278,8 +279,47 @@ const DependencyLayer = ({ tasks, projects, viewMode, collapsedProjects }: { tas
 };
 
 // 4.2 The "Envoy" AI Assistant Popup
-const EnvoyPopup = ({ task, onClose }: { task: Task, onClose: () => void }) => {
+const EnvoyPopup = ({ task, onClose, triggerRef }: { task: Task, onClose: () => void, triggerRef: React.RefObject<HTMLElement> }) => {
     const [status, setStatus] = useState<'idle' | 'thinking' | 'done'>('idle');
+    const [coords, setCoords] = useState<{ top: number; left: number } | null>(null);
+    const popupRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (triggerRef.current) {
+            const rect = triggerRef.current.getBoundingClientRect();
+            setCoords({
+                top: rect.bottom + 10,
+                left: rect.left
+            });
+        }
+    }, [triggerRef]);
+
+    // Handle click outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (
+                popupRef.current && 
+                !popupRef.current.contains(event.target as Node) &&
+                triggerRef.current &&
+                !triggerRef.current.contains(event.target as Node)
+            ) {
+                onClose();
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [onClose, triggerRef]);
+
+    // Close on scroll/resize to prevent detached popup
+    useEffect(() => {
+        const handleDismiss = () => onClose();
+        window.addEventListener('scroll', handleDismiss, true);
+        window.addEventListener('resize', handleDismiss);
+        return () => {
+            window.removeEventListener('scroll', handleDismiss, true);
+            window.removeEventListener('resize', handleDismiss);
+        };
+    }, [onClose]);
     
     const handleAction = async () => {
         setStatus('thinking');
@@ -288,11 +328,17 @@ const EnvoyPopup = ({ task, onClose }: { task: Task, onClose: () => void }) => {
         setTimeout(onClose, 1500);
     };
 
-    return (
-        <div className="absolute hover:z-50 top-full left-0 mt-2 w-64 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-indigo-100 dark:border-indigo-900 z-50 p-4 animate-in fade-in slide-in-from-top-2">
-            <div className="flex items-center z-[70] gap-2 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
+    if (typeof document === 'undefined' || !coords) return null;
+
+    return createPortal(
+        <div 
+            ref={popupRef}
+            className="fixed z-[9999] w-64 bg-white dark:bg-slate-800 rounded-xl shadow-2xl border border-indigo-100 dark:border-indigo-900 p-4 animate-in fade-in zoom-in-95 slide-in-from-top-2 duration-200 ease-out"
+            style={{ top: coords.top, left: coords.left }}
+        >
+            <div className="flex items-center gap-2 mb-3 border-b border-gray-100 dark:border-gray-700 pb-2">
                 <BrainCircuit className="w-4 h-4 text-indigo-500" />
-                <span className="relative z-index:10 font-bold text-xs uppercase tracking-wider text-indigo-900 dark:text-indigo-100">Envoy AI</span>
+                <span className="font-bold text-xs uppercase tracking-wider text-indigo-900 dark:text-indigo-100">Envoy AI</span>
             </div>
             
             {status === 'idle' && (
@@ -323,17 +369,19 @@ const EnvoyPopup = ({ task, onClose }: { task: Task, onClose: () => void }) => {
                     <span className="text-xs font-bold">Optimization Applied</span>
                 </div>
             )}
-        </div>
+        </div>,
+        document.body
     );
 };
 
-// 4.3 Task Item
+// Task Item
 const TaskItem = ({ task, user, dispatch, isEnvoyActive }: { task: Task, user: User | undefined, dispatch: any, isEnvoyActive: boolean }) => {
+    const triggerRef = useRef<HTMLButtonElement>(null);
     const statusColor = {
         'On Track': 'bg-indigo-500', 'At Risk': 'bg-amber-500', 'Blocked': 'bg-rose-500', 'Completed': 'bg-emerald-500'
     };
 
-    // Calculate slippage (Ghost bar)
+    // Calculate slippage
     const isSlipping = task.duration > task.plannedDuration;
     const ghostWidth = (task.plannedDuration / task.duration) * 100;
 
@@ -344,6 +392,7 @@ const TaskItem = ({ task, user, dispatch, isEnvoyActive }: { task: Task, user: U
         >
             {/* Envoy Trigger (Hover) */}
             <button 
+                ref={triggerRef}
                 onClick={() => dispatch({ type: 'TRIGGER_ENVOY', payload: isEnvoyActive ? null : task.id })}
                 className={`absolute -top-3 -right-3 z-[60] bg-white dark:bg-slate-900 rounded-full p-1 shadow border transition-all ${task.envoySuggestion ? 'text-indigo-600 scale-100' : 'text-gray-400 scale-0 group-hover:scale-100'}`}
             >
@@ -352,11 +401,9 @@ const TaskItem = ({ task, user, dispatch, isEnvoyActive }: { task: Task, user: U
 
             {/* Envoy Popup */}
             {isEnvoyActive && (
-                <div className="relative z-[70]"> 
-                    <EnvoyPopup task={task} onClose={() => dispatch({ type: 'TRIGGER_ENVOY', payload: null })} />
-                </div>
+                <EnvoyPopup task={task} onClose={() => dispatch({ type: 'TRIGGER_ENVOY', payload: null })} triggerRef={triggerRef} />
             )}
-            {/* Ghost Bar (Planned) */}
+            {/* Ghost Bar (Future) */}
             {isSlipping && (
                 <div className="absolute inset-0 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-md opacity-50 w-full" style={{ width: `${ghostWidth}%` }} />
             )}
@@ -404,7 +451,7 @@ const TaskItem = ({ task, user, dispatch, isEnvoyActive }: { task: Task, user: U
     );
 };
 
-// 4.4 HUD with Persona Support
+// HUD 
 const WorkloadHUD = () => {
     const { state, dispatch } = useContext(AppContext)!;
 
@@ -454,7 +501,7 @@ const WorkloadHUD = () => {
                             <div className={`h-full rounded-full ${user.baseCapacity > 90 ? 'bg-rose-500' : 'bg-emerald-500'}`} style={{ width: `${user.baseCapacity}%` }} />
                         </div>
 
-                        {/* Persona Pills (Only for Current User or heavily detailed view) */}
+                        {/* Persona Pills */}
                         {isCurrentUser && (
                             <div className="flex gap-1 mt-1">
                                 {user.personas.map(p => (
@@ -475,7 +522,7 @@ const WorkloadHUD = () => {
     );
 };
 
-// 4.5 Add Task Modal
+// Add Task Modal
 const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
     // Save the variables in memory
     const { state, dispatch } = useContext(AppContext)!;
@@ -631,9 +678,7 @@ const AddTaskModal = ({ onClose }: { onClose: () => void }) => {
     );
 };
 
-// ==========================================
-// 5. MAIN PAGE COMPONENT
-// ==========================================
+// MAIN PAGE COMPONENT
 
 export default function RoadmapPage() {
     const [state, dispatch] = useReducer(appReducer, initialState);
