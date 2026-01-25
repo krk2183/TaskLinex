@@ -45,36 +45,37 @@ const Team: TeamMember[] = [
     { id: '2', name: 'Sarah', role: 'Lead Eng', avatar: 'https://i.pravatar.cc/150?u=2', status: 'busy', workload: 95, currentTask: 'API Migration' },
     { id: '3', name: 'David', role: 'Designer', avatar: 'https://i.pravatar.cc/150?u=3', status: 'offline', workload: 40 },
     { id: '4', name: 'Elena', role: 'Product', avatar: 'https://i.pravatar.cc/150?u=4', status: 'online', workload: 60, currentTask: 'User Flows' },
+    { id: '5', name: 'Jake', role: 'Developer', avatar: 'https://i.pravatar.cc/150?u=5', status: 'busy', workload: 35, currentTask: 'Scalability Adaptation' },
 ];
 
 
-class addMember implements TeamMember{
-    constructor(
-        public id: string,
-        public name: string,
-        public role: string,
-        public avatar: string,
-        public status: TeamMember['status'],
-        public workload: number,
-        public currentTask?: string
-    ) {}
-}
+// class addMember implements TeamMember{
+//     constructor(
+//         public id: string,
+//         public name: string,
+//         public role: string,
+//         public avatar: string,
+//         public status: TeamMember['status'],
+//         public workload: number,
+//         public currentTask?: string
+//     ) {}
+// }
 
-// Make this read from a dataset and then create these roles
-const getMembers = ()=> {
+// // Make this read from a dataset and then create these roles
+// const getMembers = ()=> {
 
-    // ILLUSTRATIVE PURPOSES ONLY
-    const id:number = Team.length + 1;
-    const name:string = 'Jake';
-    const role:string = 'Developer';
-    const avatar:string = 'https://i.pravatar.cc/150?u=5';
-    const status: TeamMember['status'] = 'busy';
-    const workload:number = 35;
-    const currentTask:string = 'Scalability Adaptation';
-    const newMember:TeamMember = new addMember(id.toString(),name,role,avatar,status,workload,currentTask);
-    Team.push(newMember)
-    };
-getMembers();
+//     // ILLUSTRATIVE PURPOSES ONLY
+//     const id:number = Team.length + 1;
+//     const name:string = 'Jake';
+//     const role:string = 'Developer';
+//     const avatar:string = 'https://i.pravatar.cc/150?u=5';
+//     const status: TeamMember['status'] = 'busy';
+//     const workload:number = 35;
+//     const currentTask:string = 'Scalability Adaptation';
+//     const newMember:TeamMember = new addMember(id.toString(),name,role,avatar,status,workload,currentTask);
+//     Team.push(newMember)
+//     };
+// getMembers();
 
 // EVENTS FOR THE ACTIVITY STREAM
 const mockEvents: PulseEvent[] = [
@@ -119,6 +120,16 @@ const mockEvents: PulseEvent[] = [
         timestamp: '1h ago',
         metadata: { blockerReason: 'I uploaded the new assets to Figma.' }
     },
+    {
+        id: 'e7',
+        type: 'milestone',
+        actor: Team[4],
+        targetTask: 'Memory Optimization',
+        targetLink: 'Link',
+        details: 'has been picked up',
+        timestamp: '15m ago',
+        metadata: {blockerReason:'Customer Disagreement.'}
+    }
 ];
 
 class addEvent implements PulseEvent {
@@ -138,7 +149,7 @@ class addEvent implements PulseEvent {
 }
 
 const getEvents = ()=>{
-    const id = 'e7';
+    const id = 'e8';
     const type = 'milestone';
     // use the last team member to avoid out-of-bounds undefined access
     const actor = Team[Team.length-1];

@@ -4,10 +4,10 @@ import { Home, Settings, ChevronLeft, LayoutDashboard, BarChart3, Sun, Moon, Bad
 import Link from 'next/link';
 import { useLayout } from './LayoutContext'; 
 const navItems = [
-    { name: 'Pulse', href: '/', icon: BadgePlus },
-    { name: 'Roadmap', href: '/roadmap', icon: MapPinCheck },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Settings', href: '/settings', icon: Settings },
+    { name: 'Pulse', href: '/app', icon: BadgePlus },
+    { name: 'Roadmap', href: '/app/roadmap', icon: MapPinCheck },
+    { name: 'Analytics', href: '/app/analytics', icon: BarChart3 },
+    { name: 'Settings', href: '/app/settings', icon: Settings },
 ];
 
 export default function Sidebar() {
@@ -60,9 +60,9 @@ export default function Sidebar() {
 
                 <div className="mt-0 md:mt-auto mb-0 md:mb-5 border-t-0 md:border-t border-gray-200 dark:border-slate-800 pt-0 md:pt-4 ml-4 md:ml-0">
                     <div className={`flex items-center gap-3 ${isExpanded ? 'px-2' : 'justify-center'}`}>
-                        <Link href="/account" className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">JD</Link>
+                        <Link href="/app/account" className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">JD</Link>
                         <div className={`hidden md:block overflow-hidden transition-all duration-200 ${isExpanded ? "w-full" : "w-0"}`}>
-                            <Link href="/account" className="text-xs">
+                            <Link href="/app/account" className="text-xs">
                                 <div className="text-gray-800 dark:text-white font-medium whitespace-nowrap">John Doe</div>
                                 <div className="text-slate-500 whitespace-nowrap">Workspace Admin</div>
                             </Link>

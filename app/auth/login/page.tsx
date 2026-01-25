@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Lock, Mail, Github, Chrome, ShieldCheck, ArrowLeft } from "lucide-react";
+import { ArrowRight, Lock, Mail, Github, Chrome, ShieldCheck, ArrowLeft, AlertCircle } from "lucide-react";
 
 // --- COMPONENTS ---
 
@@ -20,12 +20,18 @@ const InputField = ({
   label, 
   type, 
   placeholder, 
-  icon: Icon 
+  icon: Icon,
+  name,
+  value,
+  onChange
 }: { 
   label: string, 
   type: string, 
   placeholder: string, 
-  icon: any 
+  icon: any,
+  name: string,
+  value: string,
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
 }) => (
   <div className="space-y-2">
     <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -37,6 +43,9 @@ const InputField = ({
       </div>
       <input
         type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
         className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-sm rounded-lg block pl-10 p-3 placeholder-slate-600 focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 outline-none transition-all shadow-sm"
         placeholder={placeholder}
       />
@@ -49,7 +58,7 @@ const BackButton = () => (
     initial={{ opacity: 0, x: -20 }}
     animate={{ opacity: 1, x: 0 }}
     transition={{ delay: 0.2, duration: 0.5 }}
-    className="absolute left-8 md:left-24 xl:left-32 top-[5vw] z-50"
+    className="absolute left-8 md:left-24 xl:left-32 top-8 z-50"
   >
     <Link 
       href="/"
@@ -63,6 +72,46 @@ const BackButton = () => (
 // --- PAGE ---
 
 export default function LoginPage() {
+  const [data, setData] = React.useState({
+    email: "",
+    password: "",
+    rememberMe: false,
+  });
+  const [error, setError] = React.useState("");
+  const [loading, setLoading] = React.useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type, checked } = e.target;
+    setData({ ...data, [name]: type === "checkbox" ? checked : value });
+    setError("");
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      const response = await fetch("http://localhost:8000/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.detail || "Login failed. Please check your credentials.");
+      }
+      
+      const result = await response.json();
+      localStorage.setItem("token", result.access_token);
+      window.location.href = "/app";
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen w-full flex bg-slate-950 text-slate-200 font-sans selection:bg-violet-500/30 relative">
       {/* LEFT SIDE: FORM */}
@@ -81,37 +130,56 @@ export default function LoginPage() {
             <p className="text-slate-400">Authenticate to access your workspace.</p>
           </div>
 
-          <form className="space-y-5">
+          <form className="space-y-5" onSubmit={handleLogin}>
+            {error && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 flex items-center gap-2 text-red-400 text-sm">
+                <AlertCircle className="w-4 h-4" />
+                {error}
+              </div>
+            )}
             <InputField 
               label="Work Email" 
               type="email" 
               placeholder="name@company.com" 
               icon={Mail} 
+              name="email"
+              value={data.email}
+              onChange={handleChange}
             />
-            
-            <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                    Password
-                 </label>
-                 <Link href="#" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
-                    Reset credentials?
-                 </Link>
-              </div>
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Lock className="h-4 w-4 text-slate-500 group-focus-within:text-violet-400 transition-colors" />
+
+            <InputField
+              label="Password"
+              type="password"
+              placeholder="••••••••••••"
+              icon={Lock}
+              name="password"
+              value={data.password}
+              onChange={handleChange}
+            />
+
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <input
+                        type="checkbox"
+                        name="rememberMe"
+                        id="rememberMe"
+                        checked={data.rememberMe}
+                        onChange={handleChange}
+                        className="w-4 h-4 rounded border-slate-800 bg-slate-900 text-violet-600 focus:ring-violet-500/50 focus:ring-offset-0 accent-violet-600"
+                    />
+                    <label htmlFor="rememberMe" className="text-sm text-slate-400 select-none cursor-pointer hover:text-slate-300 transition-colors">
+                        Remember me
+                    </label>
                 </div>
-                <input
-                  type="password"
-                  className="w-full bg-slate-900 border border-slate-800 text-slate-200 text-sm rounded-lg block pl-10 p-3 placeholder-slate-600 focus:ring-2 focus:ring-violet-500/50 focus:border-violet-500 outline-none transition-all shadow-sm"
-                  placeholder="••••••••••••"
-                />
-              </div>
+                <Link href="#" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">
+                    Forgot password?
+                </Link>
             </div>
 
-            <button className="w-full bg-violet-600 hover:bg-violet-500 text-white font-bold py-3 rounded-lg shadow-[0_0_20px_rgba(124,58,237,0.3)] hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] transition-all flex items-center justify-center gap-2 group">
-              Sign In <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <button type="submit" disabled={loading} className="w-full bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-lg shadow-[0_0_20px_rgba(124,58,237,0.3)] hover:shadow-[0_0_25px_rgba(124,58,237,0.5)] transition-all flex items-center justify-center gap-2 group">
+              {loading ? "Signing In..." : (
+                <>Sign In <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" /></>
+              )}
             </button>
           </form>
 

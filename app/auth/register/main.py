@@ -1,33 +1,23 @@
 from fastapi import FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-import bcrypt
-import sqlite3
-import jwt
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from datetime import datetime, timedelta, timezone
-import uuid, uvicorn
-import os
+import uuid,os, bcrypt,sqlite3,jwt
 
 # Server initialization
 app = FastAPI()
 
 # --- Constants ---
-SECRET_KEY = "your-super-secret-key-change-me"  # Later environment variables
+SECRET_KEY = "your-super-secret-key-change-me"  # Later implement environment variables
 ALGORITHM = "HS256"
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, 'data', 'database.db')
+DB_PATH = os.path.join(BASE_DIR, '..', 'data', 'database.db')
 
 # --- CORS Middleware ---
-origins = [
-    "http://localhost:3000",  # Falls du npx create-react-app nutzt
-    "http://localhost:5173",  # Falls du Vite nutzt (sehr wahrscheinlich bei modernem React)
-    "http://127.0.0.1:5173",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Zum Testen erst einmal alles erlauben
+    allow_origins=["http://localhost:3000"],  # Allows frontend to connect
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -185,13 +175,7 @@ async def signup(user: UserCreate):
     conn.commit()
     conn.close()
 
-    # Auto-login: Generate access token immediately after signup
-    token_span = timedelta(days=15) if user.rememberMe else timedelta(minutes=30)
-    expire = datetime.now(timezone.utc) + token_span
-    payload = {'sub': user.email, 'id': user_id, 'exp': expire}
-    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
-
-    return {"access_token": token, "token_type": "bearer"}
+    return {"message": "User created successfully"}
 
 @app.post('/login')
 async def login(form_data: UserLogin):
@@ -228,6 +212,3 @@ async def login(form_data: UserLogin):
     token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
     
     return {"access_token": token, "token_type": "bearer"}
-
-if __name__ == "__main__":
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
